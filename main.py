@@ -5,6 +5,18 @@ import tempfile
 import glob
 from scripts.ui.main_window import run_main_window
 
+import ctypes
+import sys
+
+def open_console():
+    # Ouvre une console Windows
+    ctypes.windll.kernel32.AllocConsole()
+    # Redirige stdout et stderr vers la console
+    sys.stdout = open("CONOUT$", "w")
+    sys.stderr = open("CONOUT$", "w")
+
+open_console()
+
 def cleanup_temp_files():
     """
     Identifie et supprime les fichiers temporaires générés par l'application
