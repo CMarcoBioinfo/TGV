@@ -1,0 +1,41 @@
+name: Build Windows EXE
+
+# Déclenchement uniquement manuel (workflow_dispatch)
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Install dependencies
+      run: |
+        pip install --upgrade pip
+        pip install pyinstaller
+        pip install PySimpleGUI-4-foss
+        pip install pyyaml
+
+    - name: Build EXE
+      run: |
+        pyinstaller --onefile --windowed main.py --hidden-import yaml --add-data "assets;assets" --add-data "configs;configs"
+
+    - name: Show dist folder
+      run: |
+        echo "Listing dist folder:"
+        dir dist
+
+    - name: Upload EXE artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: TGV-exe
+        path: dist/main.exe
+        compression-level: 0

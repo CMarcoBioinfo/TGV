@@ -1,0 +1,516 @@
+# ===================================================================
+# COMMENT AJOUTER / MODIFIER UN TRID
+#
+# Le nom du bloc (ex : SCA1_ATXN1) doit correspondre EXACTEMENT
+# au TRID utilisé dans le BED/VCF TRGT.
+# S’il ne correspond pas, le locus ne sera pas chargé.
+#
+# ===================================================================
+# 1) classification_mode :
+#
+#   "simple" :
+#       → classification basée uniquement sur les seuils (thresholds).
+#
+#   "structural" :
+#       → structure_rules évaluées en premier.
+#       → si aucune règle ne s'applique → fallback automatique sur thresholds.
+#
+#   Remarque :
+#       - structural sans structure_rules = simple
+#       - simple ignore structure_rules
+#
+# ===================================================================
+# 2) repeat_mode : (construction TRGT → impacte la classification)
+#
+#   Contrôle la construction des répétitions TRGT dans motif_structure.py.
+#   Le total_repeats obtenu est utilisé ensuite par :
+#       - le calcul du génotype clinique
+#       - les thresholds
+#       - les structure_rules
+#
+#   "sum_with_interruptions" :
+#       → interruptions internes converties en m
+#       → total_repeats = repeats + m
+#
+#   "sum_without_interruptions" :
+#       → interruptions ignorées
+#       → m = 0
+#       → total_repeats = repeats
+#
+# ===================================================================
+# 3) genotype_display : (affichage du génotype)
+#
+#   Contrôle UNIQUEMENT la façon dont le génotype est AFFICHÉ
+#   dans orchestrator.py.
+#
+#   Toujours un seul motif est affiché.
+#
+#   "pathogenic_only" :
+#       → affiche uniquement le génotype du groupe gagnant
+#       → n'affiche PAS le motif principal
+#
+#   "pathogenic_with_motif" :
+#       → affiche le génotype du groupe gagnant
+#       → affiche AUSSI le motif principal du groupe gagnant
+#
+#   "full_with_others" :
+#       → si le groupe gagnant a un label clinique strictement supérieur au label minimal :
+#             affiche le génotype + motif du groupe gagnant
+#         sinon :
+#             compare le groupe gagnant et les autres groupes sur le nombre de répétitions
+#             prend celui qui a le plus de répétitions et affiche son génotype + motif
+#       → affiche ensuite les autres groupes (génotype + motif) séparés par "/"
+
+#
+# ===================================================================
+# 4) orientation :
+#
+#   "FW" ou "RC"
+#
+#   → Orientation logique choisie pour définir motifs et seuils.
+#   → Ne dépend pas du sens biologique.
+#
+# ===================================================================
+# 5) motif_properties :
+#
+#   pure_only :
+#       → Contrôle UNIQUEMENT l'affichage du génotype.
+#       → Ne modifie pas la classification.
+#
+#       - true  → notation enrichie : "27 (29)"
+#       - false → notation simple : "27"
+#
+#   motif_groups :
+#       → Définit les groupes TRGT utilisés pour :
+#           - la construction TRGT
+#           - la classification clinique
+#           - la sélection du groupe gagnant
+#
+#       Exemple :
+#           CAG_CAA: ["CAG", "CAA"]
+#
+# ===================================================================
+# 6) thresholds :
+#
+#   thresholds:
+#       GROUP_ID:
+#           LABEL: [min, max] | null
+#
+#   → Définissent les labels cliniques par groupe.
+#   → Tous les GROUP_ID doivent être définis.
+#
+# ===================================================================
+# 7) label_priority :
+#
+#   Détermine l'ordre clinique global des labels.
+#
+#   → Utilisé pour départager les GROUP_ID lorsque plusieurs labels
+#     sont possibles pour un même TRID.
+#
+#   → Fonctionne AVANT l’ordre des motif_groups.
+#
+#   → Règle de sélection :
+#         1. Le groupe ayant le label avec la priorité la plus élevée gagne.
+#         2. En cas d’égalité de priorité :
+#                → l’ordre d’écriture des motif_groups dans le YAML
+#                  sert de second critère.
+#
+#   Exemple :
+#       normal < intermediate < pathogenic_incomplete < pathogenic < pathogenic_complete
+#
+# ===================================================================
+# 8) structure_rules : (optionnel)
+#
+#   → Évaluées AVANT les thresholds si classification_mode = structural.
+#   → La première règle valide gagne.
+#   → En cas de chevauchement, l'ordre fait foi.
+#
+#   Exemple :
+#       GROUP_ID:
+#           - conditions:
+#                 repeat_range: [min, max]
+#                 interruptions: true/false
+#                 classification: "label"
+#
+# ===================================================================
+
+label_priority:
+    "normal" : 0
+    "ambiguous" : 1
+    "intermediate": 2
+    "pathogenic_incomplete": 3
+    "pathogenic": 4
+    "pathogenic_complete": 5
+
+# ===================================================================
+
+SCA1_ATXN1:
+    source:
+        document: "HAS - Volet 1"
+        version: "02-2025"
+
+    classification_mode: "structural"
+    repeat_mode: "sum_with_interruptions"
+    genotype_display: "pathogenic_only"
+    orientation: "RC"
+
+    motif_properties:
+        pathogenic_motifs: ["CAG", "CAA"]
+        pure_only: false
+
+        motif_groups:
+            CAG_CAA: ["CAG", "CAA"]
+
+    thresholds:
+        CAG_CAA:
+            "normal": [6, 38]
+            "pathogenic_complete": [45, null]
+
+    structure_rules:
+        CAG_CAA:
+            - conditions:
+                repeat_range: [39, 44]
+                interruptions: true
+                classification: "normal"
+
+            - conditions:
+                repeat_range: [39, 44]
+                interruptions: false
+                classification: "pathogenic_complete"
+
+
+SCA2_ATXN2:
+    source:
+        document: "HAS - Volet 1"
+        version: "02-2025"
+
+    classification_mode: "simple"
+    repeat_mode: "sum_with_interruptions"
+    genotype_display: "pathogenic_only"
+    orientation: "RC"
+
+    motif_properties:
+        pathogenic_motifs: ["CAG", "CAA"]
+        pure_only: false
+
+        motif_groups:
+            CAG_CAA: ["CAG", "CAA"]
+
+    thresholds:
+        CAG_CAA:
+            "normal": [14, 31]
+            "intermediate": [32, 34]
+            "pathogenic_complete": [35, null]
+
+    structure_rules: []
+
+
+SCA3_ATXN3:
+    source:
+        document: "HAS - Volet 1"
+        version: "02-2025"
+
+    classification_mode: "simple"
+    repeat_mode: "sum_with_interruptions"
+    genotype_display: "pathogenic_only"
+    orientation: "RC"
+
+    motif_properties:
+        pathogenic_motifs: ["CAG", "CAA"]
+        pure_only: false
+
+        motif_groups:
+            CAG_CAA: ["CAG", "CAA"]
+
+    thresholds:
+        CAG_CAA:
+            "normal": [12, 44]
+            "intermediate": [45, 59]
+            "pathogenic_complete": [60, null]
+
+    structure_rules: []
+
+
+SCA6_CACNA1A:
+    source:
+        document: "HAS - Volet 1"
+        version: "02-2025"
+
+    classification_mode: "simple"
+    repeat_mode: "sum_with_interruptions"
+    genotype_display: "pathogenic_only"
+    orientation: "RC"
+        
+    motif_properties:
+        pathogenic_motifs: ["CAG", "CAA"]
+        pure_only: false
+
+        motif_groups:
+            CAG_CAA: ["CAG", "CAA"]
+
+    thresholds:
+        CAG_CAA:
+            "normal": [0, 18]
+            "pathogenic_incomplete": [19, 19]
+            "pathogenic_complete": [20, null]
+
+    structure_rules: []
+
+
+SCA7_ATXN7:
+    source:
+        document: "HAS - Volet 1"
+        version: "02-2025"
+    
+    classification_mode: "simple"
+    repeat_mode: "sum_with_interruptions"
+    genotype_display: "pathogenic_only"
+    orientation: "FW"
+
+    motif_properties:
+        pathogenic_motifs: ["CAG", "CAA"]
+        pure_only: false
+
+        motif_groups:
+            CAG_CAA: ["CAG", "CAA"]
+
+    thresholds:
+        CAG_CAA:
+            "normal": [4, 19]
+            "intermediate": [28, 33]
+            "pathogenic_incomplete": [34, 35]
+            "pathogenic_complete": [36, null]
+
+    structure_rules: []
+
+
+SCA17_TBP:
+    source:
+        document: "HAS - Volet 1"
+        version: "02-2025"
+    
+    classification_mode: "simple"
+    repeat_mode: "sum_with_interruptions"
+    genotype_display: "pathogenic_only"
+    orientation: "FW"
+        
+    motif_properties:
+        pathogenic_motifs: ["CAG", "CAA"]
+        pure_only: false
+
+        motif_groups:
+            CAG_CAA: ["CAG", "CAA"]
+
+    thresholds:
+        CAG_CAA:
+            "normal": [25, 40]
+            "pathogenic_incomplete": [41, 48]
+            "pathogenic_complete": [49, null]
+
+    structure_rules: []
+
+
+SCA27B_FGF14:
+    source:
+        document: "Erdmann et al"
+        version: "2025"
+
+    classification_mode: "simple"
+    repeat_mode: "sum_with_interruptions"
+    genotype_display: "pathogenic_only"
+    orientation: "FW"
+
+    motif_properties:
+        pathogenic_motifs: ["GAA"]
+        pure_only: true
+
+        motif_groups:
+            GAA: ["GAA"]
+
+    thresholds:
+        GAA:
+            "normal": [0, 199]
+            "intermediate": [200, 249]
+            "pathogenic_incomplete": [250, 300]
+            "pathogenic_complete": [301, null]
+
+    structure_rules: []
+
+
+SCA36_NOP56:
+    source:
+        document: "Erdmann et al"
+        version: "2025"
+
+    classification_mode: "simple"
+    repeat_mode: "sum_with_interruptions"
+    genotype_display: "pathogenic_only"
+    orientation: "FW"
+
+    motif_properties:
+        pathogenic_motifs: ["GGCCTG"]
+        pure_only: false
+
+        motif_groups:
+            GGCCTG: ["GGCCTG"]
+
+    thresholds:
+        GGCCTG:
+            "normal": [3, 14]
+            "pathogenic_complete": [650, null]
+
+    structure_rules: []
+
+
+FRDA_FXN:
+    source:
+        documents:
+            - name: "HAS - Volet 1"
+              version: "02-2025"
+            - name: "Benkirane et al."
+              version: "2025"
+
+    classification_mode: "simple"
+    repeat_mode: "sum_with_interruptions"
+    genotype_display: "pathogenic_only"
+    orientation: "FW"
+
+    motif_properties:
+        pathogenic_motifs: ["GAA", "GAAA", "GAAGAAA"]
+        protective_motifs: ["GAAGAG"]
+        pure_only: false
+
+        motif_groups:
+            GAA_GAAA_GAAGAAA: ["GAA", "GAAA", "GAAGAAA"]
+
+    thresholds:
+        GAA_GAAA_GAAGAAA:
+            "normal": [0, 33]
+            "intermediate": [34, 89]
+            "pathogenic_complete": [90, null]
+
+    structure_rules: []
+
+
+CANVAS_RFC1:
+    source:
+        documents:
+            - name: "HAS - Volet 1"
+              version: "02-2025"
+            - name: "Erdmann et al."
+              version: "2025"
+
+    classification_mode: "simple"
+    repeat_mode: "sum_without_interruptions"
+    genotype_display: "full_with_others"
+    orientation: "FW"
+
+    motif_properties:
+        pathogenic_motifs: ["AAGGG", "AAAGG", "ACAGG", "AGGGC"]
+        pure_only: false
+
+        motif_groups:
+            AAGGG: ["AAGGG"]
+            AAAGG: ["AAAGG"]
+            ACAGG: ["ACAGG"]
+            AGGGC: ["AGGGC"]
+
+    thresholds:
+        AAAGG:
+            "pathogenic": [500, null]
+
+        AAGGG:
+            "pathogenic": [200, null]
+
+        ACAGG:
+            "pathogenic": [200, null]
+
+        AGGGC:
+            "pathogenic": [200, null]
+        
+    structure_rules: []
+
+
+FTDALS1_C9orf72:
+    source:
+        document: "HAS - Volet 2"
+        version: "02-2025"
+
+    classification_mode: "simple"
+    repeat_mode: "sum_with_interruptions"
+    genotype_display: "pathogenic_only"
+    orientation: "RC"
+
+    motif_properties:
+        pathogenic_motifs: ["GGGGCC"]
+        pure_only: false
+
+        motif_groups:
+            GGGGCC: ["GGGGCC"]
+
+    thresholds:
+        GGGGCC:
+            "normal": [0, 19]
+            "intermediate": [20, 30]
+            "pathogenic_complete": [31, null]
+
+    structure_rules: []
+
+
+FXS_FMR1:
+    source:
+        document: "HAS - Volet 2"
+        version: "02-2025"
+
+    classification_mode: "simple"
+    repeat_mode: "sum_with_interruptions"
+    genotype_display: "pathogenic_only"
+    orientation: "FW"
+
+    motif_properties:
+        pathogenic_motifs: ["CGG"]
+        non_pathogenic_motifs: ["AGG"]
+        pure_only: true
+
+        motif_groups:
+            CGG: ["CGG"]
+
+    thresholds:
+        CGG:
+            "normal": [0, 44]
+            "intermediate": [45, 54]
+            "premutation": [55, 200]
+            "pathogenic_complete": [200, null]
+
+    structure_rules: []
+
+
+OPDM1_LRP12:
+    source:
+        documents:
+            - name: "Yu et al."
+              version: "2021"
+            - name: "Xi et al."
+              version: "2020"
+            - name: "JNNP – OPDM classification"
+              version: "2024"
+
+    classification_mode: "simple"
+    repeat_mode: "sum_with_interruptions"
+    genotype_display: "pathogenic_only"
+    orientation: "RC"
+
+    motif_properties:
+        pathogenic_motifs: ["CGG"]
+        pure_only: true
+
+        motif_groups:
+            CGG: ["CGG"]
+
+    thresholds:
+        CGG:
+            "normal": [0, 40]
+            "intermediate": [41, 75]
+            "pathogenic_complete": [76, null]
+
+    structure_rules: []

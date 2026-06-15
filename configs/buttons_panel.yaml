@@ -1,0 +1,67 @@
+# ============================================================================
+#  TRGT Clinical Parser  Button Panels Configuration
+# ============================================================================
+#  Ce fichier définit les groupes de locus (TRIDs) affichés sous forme de
+#  boutons dans l’interface graphique. Chaque clé YAML correspond à un bouton.
+#
+#  FORMAT :
+#      NOM_DU_BOUTON:
+#        - TRID1
+#        - TRID2
+#        - TRID3
+#
+#  RÈGLES :
+#     Le nom du bouton (clé YAML) sera affiché tel quel dans l’UI.
+#
+#     Si le nom du bouton contient un espace ou un caractère spécial,
+#      il doit être mis entre guillemets :
+#          "Ataxie 2":
+#            - FRDA_FXN
+#
+#     Les TRIDs doivent être écrits sous leur forme interne TRGT :
+#         Exemple : SCA1_ATXN1, FRDA_FXN, CANVAS_RFC1
+#
+#     Lorsqu’un bouton est cliqué :
+#         - Les TRIDs présents dans le VCF sont automatiquement sélectionnés.
+#         - Les TRIDs absents du VCF sont listés dans une popup.
+#
+#     L’ordre des TRIDs dans chaque liste est strictement conservé :
+#         - dans la sélection automatique,
+#         - dans l’ordre d’analyse,
+#         - dans l’affichage du tableau final.
+#
+#     Pour ajouter un bouton :
+#         → ajouter une nouvelle clé YAML (avec ou sans guillemets selon le nom).
+#
+#     Pour enlever un bouton :
+#         → supprimer simplement la clé YAML correspondante.
+#
+#     L’interface se met automatiquement à jour au prochain lancement,
+#      sans aucune modification du code Python.
+#
+# ============================================================================
+
+
+SCA:
+  - SCA1_ATXN1
+  - SCA2_ATXN2
+  - SCA3_ATXN3
+  - SCA6_CACNA1A
+  - SCA7_ATXN7
+  - SCA17_TBP
+  - SCA27B_FGF14
+  - SCA36_NOP56
+
+
+Ataxie:
+  - FRDA_FXN
+  - CANVAS_RFC1
+  - FXS_FMR1
+  - SCA1_ATXN1
+  - SCA2_ATXN2
+  - SCA3_ATXN3
+  - SCA6_CACNA1A
+  - SCA7_ATXN7
+  - SCA17_TBP
+  - SCA27B_FGF14
+  - SCA36_NOP56
