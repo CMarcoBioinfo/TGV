@@ -5,17 +5,24 @@ import tempfile
 import glob
 from scripts.ui.main_window import run_main_window
 
-import ctypes
-import sys
+# import ctypes
+# import sys
 
-def open_console():
-    # Ouvre une console Windows
-    ctypes.windll.kernel32.AllocConsole()
-    # Redirige stdout et stderr vers la console
-    sys.stdout = open("CONOUT$", "w")
-    sys.stderr = open("CONOUT$", "w")
+# def open_console():
+#     # Ouvre une console Windows
+#     ctypes.windll.kernel32.AllocConsole()
+#     # Redirige stdout et stderr vers la console
+#     sys.stdout = open("CONOUT$", "w")
+#     sys.stderr = open("CONOUT$", "w")
 
-open_console()
+# open_console()
+
+# --- REDIRECTION DES LOGS POUR PYINSTALLER (SANS CONSOLE) ---
+# Empêche le serveur local de crasher sur Windows lors de l'écriture des logs
+if sys.stdout is None:
+    sys.stdout = open(os.devnull, "w")
+if sys.stderr is None:
+    sys.stderr = open(os.devnull, "w")
 
 def cleanup_temp_files():
     """
