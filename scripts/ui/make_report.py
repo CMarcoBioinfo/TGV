@@ -18,8 +18,11 @@ import io
 import csv
 import tempfile
 import webbrowser
+import logging
 from datetime import datetime
 from pathlib import Path
+import PySimpleGUI as sg
+
 
 
 # ---------------------------------------------------------------------------
@@ -30,6 +33,7 @@ class RunReader:
         self.path = Path(path)
         self.is_zip = zipfile.is_zipfile(path)
         self.zip_file = None
+        logging.debug(f"Initializing RunReader for path: '{path}' (Archive mode: {self.is_zip})")
         if self.is_zip:
             self.zip_file = zipfile.ZipFile(path, "r")
             
@@ -149,8 +153,10 @@ def df_to_html_table(table_data: dict, table_id: str) -> str:
 # ---------------------------------------------------------------------------
 
 def generate_report_html_string(input_path: Path) -> str:
+    logging.info(f"Generating HTML QC enrichment report from: '{input_path.name}'")
     input_path = Path(input_path).resolve()
     if not input_path.exists():
+        logging.error(f"Input path for HTML report generation does not exist: {input_path}")
         raise FileNotFoundError(f"Le chemin spécifié est introuvable : {input_path}")
         
     reader = RunReader(input_path)
@@ -160,10 +166,12 @@ def generate_report_html_string(input_path: Path) -> str:
     # ── 1. Recherche du JSON ──
     json_candidates = reader.list_json_candidates()
     if not json_candidates:
+        logging.error(f"No valid TRGT JSON report file found in: '{input_path.name}'")
         reader.close()
         raise FileNotFoundError(f"Aucun fichier JSON valide trouvé dans {input_path.name}")
         
     json_filename = json_candidates[0]
+    logging.info(f"Found TRGT JSON metric metadata file: '{json_filename}'")
     data = reader.read_json(json_filename)
 
     # ── 2. Attributes (Metrics) ──
@@ -171,7 +179,8 @@ def generate_report_html_string(input_path: Path) -> str:
     for attr in data.get("attributes", []):
         fmt = fmt_attribute_value(attr["value"])
         attributes.append({"name": attr["name"], "value_fmt": fmt})
-    
+
+    logging.info(f"Extracted {len(attributes)} general run metrics/attributes from JSON.")
     raw_attrs = data.get("attributes", [])
     metrics_tsv = (
         "\t".join(a["name"] for a in raw_attrs)
@@ -209,12 +218,14 @@ def generate_report_html_string(input_path: Path) -> str:
                 
         if plots:
             plot_groups.append({"title": group["title"], "plots": plots})
+            logging.info(f"Loaded plot group: '{group['title']}' with {len(plots)} charts.")
 
     # ── 5. Sample Summary (sans Pandas) ──
     sample_summary_html = None
     if reader.file_exists("sample_summary.csv"):
         raw_lines = reader.read_csv("sample_summary.csv")
         if raw_lines:
+            logging.info("Detected and loading 'sample_summary.csv' table data.")
             headers = raw_lines[0]
             rows = []
             for row in raw_lines[1:]:
@@ -230,6 +241,7 @@ def generate_report_html_string(input_path: Path) -> str:
     # ── 6. Target Coverage (sans Pandas) ──
     target_cov_html = None
     if reader.file_exists("target_cov_by_sample.csv"):
+        logging.info("Detected and loading 'target_cov_by_sample.csv' table data.")
         raw_lines = reader.read_csv("target_cov_by_sample.csv")
         if raw_lines and len(raw_lines) >= 2:
             targets = [row[0] for row in raw_lines[1:] if row]
@@ -800,6 +812,7 @@ def open_report_on_the_fly(input_path: Path):
     Génère le HTML à la volée, le stocke temporairement dans l'OS
     et l'ouvre dans le navigateur, sans polluer vos dossiers avec des fichiers.
     """
+    logging.info(f"Opening standalone QC report on-the-fly for dataset: {input_path}")
     try:
         input_path = Path(input_path)
         html_content = generate_report_html_string(input_path)
@@ -809,13 +822,15 @@ def open_report_on_the_fly(input_path: Path):
         
         # Exactement votre fonction de sauvegarde temporaire
         tmp_path = os.path.join(tempfile.gettempdir(), f"trgt_report_{run_name}.html")
+        logging.debug(f"Writing temporary standalone HTML report to: {tmp_path}")
         with open(tmp_path, "w", encoding="utf-8") as f:
             f.write(html_content)
 
         uri = Path(tmp_path).as_uri()
+        logging.info(f"Launching web browser at report URI: {uri}")
         webbrowser.open(uri)
     except Exception as e:
-        import PySimpleGUI as sg
+        logging.error(f"Failed to generate and open QC enrichment report on-the-fly: {e}", exc_info=True)
         sg.popup_error(f"Impossible d'ouvrir le rapport global :\n{e}")
 
 

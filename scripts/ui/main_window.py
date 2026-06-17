@@ -2,6 +2,7 @@ import PySimpleGUI as sg
 import os
 import yaml
 import re
+import logging
 
 from scripts.models.run import Run
 from scripts.models.trid import TRID
@@ -30,7 +31,7 @@ def load_button_panels():
     path = get_safe_config_path("buttons_panel.yaml")
 
     if not os.path.exists(path):
-        print("[INFO] Aucun fichier buttons_panel.yaml trouvé → aucun panel chargé.")
+        logging.info(f"No 'buttons_panel.yaml' found at {path}. No panel loaded.")
         return {}
 
     try:
@@ -38,7 +39,7 @@ def load_button_panels():
             data = yaml.safe_load(f)
         return data if isinstance(data, dict) else {}
     except Exception as e:
-        print(f"[WARN] Erreur lors du chargement de buttons_panel.yaml : {e}")
+        logging.warning(f"Failed to load buttons_panel.yaml: {e}")
         return {}
 
 
@@ -91,7 +92,7 @@ def get_trids_with_clinical(window):
 # FENÊTRE PRINCIPALE
 # ---------------------------------------------------------
 def run_main_window():
-    print("[INFO] Ouverture de la fenêtre principale")
+    logging.info("Opening main window interface")
 
     sg.theme("SystemDefault")
     # Ligne de titre stylisée à insérer au début de votre layout
@@ -177,14 +178,16 @@ def run_main_window():
     # BOUCLE D'ÉVÉNEMENTS
     # ---------------------------------------------------------
     # Étape 1 : Tester la connexion une seule fois au démarrage de la fenêtre
-    print("[IGV] Vérification de la connexion Internet...")
+    logging.info("Checking Internet connection for IGV dependency...")
     online_status = is_online()
-    print(f"[IGV] Statut Internet : {'En ligne' if online_status else 'Hors-ligne'}")
+    logging.info(f"Internet connectivity status: {'Online' if online_status else 'Offline'}")
 
     fasta_path = None
     while True:
         event, values = window.read()
+
         if event == sg.WINDOW_CLOSED:
+            logging.info("Closing main window interface")
             break
 
         if event == "-FASTA-":
@@ -193,19 +196,23 @@ def run_main_window():
                 continue
 
             # Vérifier extension
+            logging.info(f"Reference genome FASTA file selected: {fasta_path}")
             fasta_path_lower = fasta_path.lower()
             if not (fasta_path_lower.endswith(".fasta") or fasta_path_lower.endswith(".fa")):
+                logging.warning(f"Invalid FASTA file format: {fasta_path}")
                 sg.popup_error("Le fichier doit être au format .fasta ou .fa")
                 continue
 
             # Vérifier existence du fichier FASTA
             if not os.path.isfile(fasta_path):
+                logging.warning(f"FASTA file not found on disk: {fasta_path}")
                 sg.popup_error("Le fichier FASTA n'existe pas.")
                 continue
 
             # Vérifier existence du fichier .fai
             fai_path = fasta_path + ".fai"
             if not os.path.isfile(fai_path):
+                logging.warning(f"Missing FASTA index (.fai) for: {fasta_path}")
                 sg.popup_error(
                     f"Le fichier d'index FASTA (.fai) est manquant :\n{fai_path}\n\n"
                     "Génère-le avec :\n\nsamtools faidx fichier.fasta"
@@ -220,12 +227,15 @@ def run_main_window():
             if not zip_path:
                 continue
 
+            logging.info(f"Loading main TRGT ZIP archive: {zip_path}")
             vcfs = list_vcfs(zip_path)
             if not vcfs:
+                logging.error(f"Selected ZIP archive contains no .trgt.vcf files: {zip_path}")
                 sg.popup_error("Ce ZIP ne contient aucun fichier .trgt.vcf.")
                 continue
 
             run_name = get_analysis_prefix(zip_path)
+            logging.info(f"Analysis run name prefix identified: {run_name}")
             run = Run(name=run_name, vcf_zip=zip_path)
 
             # ---------------------------------------------------------
@@ -253,26 +263,46 @@ def run_main_window():
             # Vérification d'existence
             if not os.path.exists(run.spanning_bam_zip):
                 run.spanning_bam_zip = None
+                logging.info("Associated Spanning BAM archive: NOT FOUND")
+            else :
+                logging.info(f"Associated Spanning BAM archive found: {run.spanning_bam_zip}")
 
             # Vérification d'existence
             if not os.path.exists(run.repeat_reads_zip):
                 run.repeat_reads_zip = None
+                logging.info("Associated Repeat Reads archive: NOT FOUND")
+            else:
+                logging.info(f"Associated Repeat Reads archive found: {run.repeat_reads_zip}")
 
             if not os.path.exists(run.motifs_allele_zip):
                 run.motifs_allele_zip = None
+                logging.info("Associated Motifs Allele archive: NOT FOUND")
+            else:
+                logging.info(f"Associated Motifs Allele archive found: {run.motifs_allele_zip}")
 
             if not os.path.exists(run.motifs_waterfall_zip):
                 run.motifs_waterfall_zip = None
+                logging.info("Associated Motifs Waterfall archive: NOT FOUND")
+            else:
+                logging.info(f"Associated Motifs Waterfall archive found: {run.motifs_waterfall_zip}")
 
             if not os.path.exists(run.meth_allele_zip):
                 run.meth_allele_zip = None
+                logging.info("Associated Methylation Allele archive: NOT FOUND")
+            else:
+                logging.info(f"Associated Methylation Allele archive found: {run.meth_allele_zip}")
 
             if not os.path.exists(run.meth_waterfall_zip):
                 run.meth_waterfall_zip = None
+                logging.info("Associated Methylation Waterfall archive: NOT FOUND")
+            else:
+                logging.info(f"Associated Methylation Waterfall archive found: {run.meth_waterfall_zip}")
 
             if run.qc_zip and os.path.exists(run.qc_zip):
+                logging.info(f"Associated Quality Control (QC) archive found: {run.qc_zip}")
                 window["-QC-REPORT-"].update(disabled=False)
             else:
+                logging.info("Associated Quality Control (QC) archive: NOT FOUND")
                 run.qc_zip = None
                 window["-QC-REPORT-"].update(disabled=True)
 
@@ -298,7 +328,7 @@ def run_main_window():
                 )
                 return
 
-            print("\n================= INIT TRID GLOBAL =================")
+            logging.info(f"Initializing {len(trids)} genomic loci structures...")
 
             # ---------------------------------------------------------
             # Création des TRIDs globaux + remplissage infos immuables + clinique
@@ -316,7 +346,7 @@ def run_main_window():
 
                 # --- Bloc YAML du TRID (sous-bloc) ---
                 trid_yaml_block = thresholds_data.get(trid_id)
-                print("YAML BLOCK FOR", trid_id, "=", trid_yaml_block)
+                logging.debug(f"YAML block found for {trid_id}: {trid_yaml_block is not None}")
 
                 if trid_yaml_block:
                     t.clinical = build_clinical_config(trid_id, thresholds_data)
@@ -328,20 +358,12 @@ def run_main_window():
                 run.trids[trid_id] = t
 
                 # --- DEBUG ---
-                print(f"\nTRID : {trid_id}")
-                print(f"  chrom  = {t.chrom}")
-                print(f"  start  = {t.start}")
-                print(f"  end    = {t.end}")
-                print(f"  motifs = {t.motifs}")
+                logging.debug(f"Locus: {trid_id} | Chrom: {t.chrom} | Coords: {t.start}-{t.end} | Motifs: {t.motifs}")
                 if t.clinical:
-                    print(f"  clinical.mode        = {t.clinical.classification_mode}")
-                    print(f"  clinical.orientation = {t.clinical.orientation}")
-                    print(f"  groups               = {list(t.clinical.groups.keys())}")
-                else:
-                    print("  clinical = None")
+                    logging.debug(f"  Clinical Config: Mode={t.clinical.classification_mode} | Groups={list(t.clinical.groups.keys())}")
 
 
-            print("\n================= END INIT TRID GLOBAL =================\n")
+            logging.info("Successfully initialized all genomic loci structures.")
 
             # ---------------------------------------------------------
             # Stockage global
@@ -396,7 +418,7 @@ def run_main_window():
         if event == "-SAMPLE-":
             sample_name = values.get("-SAMPLE-")
             if not sample_name:
-                print("[WARN] Aucun sample sélectionné")
+                logging.warning("User triggered patient selection but no sample name was found")
                 continue
 
             run = window.metadata["run"]
@@ -421,33 +443,16 @@ def run_main_window():
             readable_list = sorted(readable_map.keys())
             window["-TRID-COMBO-"].update(values=readable_list)
 
-            # Debug
-            print("\n================= DEBUG SAMPLE =================")
-            print(f">>> SAMPLE: {sample_name}")
+            # Log clinique de traçabilité
+            logging.info(f"Patient sample selected: '{sample_name}' - Extracted {len(sample_trids)} active loci.")
 
+            # --- DEBUG ---
+            logging.debug(f"Detailed sequences for sample: {sample_name}")
             for trid_id, sample_obj in sample_trids.items():
-                print(f"\n  - {trid_id}")
-
-                a1 = sample_obj.allele1
-                a2 = sample_obj.allele2
-
-                print("       allele1:")
-                print(f"           size        = {a1.size}")
-                print(f"           consensus   = {a1.sequence.sequence}")
-                print(f"           mc          = {a1.sequence.repetitions}")
-                print(f"           ms          = {a1.sequence.segmentation}")
-                print(f"           interruptions = {a1.sequence.interruptions}")
-                print(f"           seg_complete  = {a1.sequence.segmentation_complete}")
-
-
-                print("       allele2:")
-                print(f"           size        = {a2.size}")
-                print(f"           consensus   = {a2.sequence.sequence}")
-                print(f"           mc          = {a2.sequence.repetitions}")
-                print(f"           ms          = {a2.sequence.segmentation}")
-                print(f"           interruptions = {a2.sequence.interruptions}")
-                print(f"           seg_complete  = {a2.sequence.segmentation_complete}")
-
+                a1, a2 = sample_obj.allele1, sample_obj.allele2
+                logging.debug(f"  Locus: {trid_id}")
+                logging.debug(f"    Allele 1: Size={a1.size} | Consensus={a1.sequence.sequence} | MC={a1.sequence.repetitions}")
+                logging.debug(f"    Allele 2: Size={a2.size} | Consensus={a2.sequence.sequence} | MC={a2.sequence.repetitions}")
 
 
         # ---------------------------------------------------------
@@ -480,6 +485,7 @@ def run_main_window():
                 trid = window.metadata["readable_to_trid"][readable]
                 if trid not in window.metadata["selected_trids"]:
                     window.metadata["selected_trids"].append(trid)
+                    logging.info(f"Locus added to active list: {readable} ({trid})")
                 update_trid_selected(window)
 
             # Effacer la sélection dans la combo TRID
@@ -524,6 +530,7 @@ def run_main_window():
                 trid = readable_map[readable]
                 if trid in selected:
                     selected.remove(trid)
+                    logging.info(f"Locus removed from active list: {readable} ({trid})")
             update_trid_selected(window)
 
         # ---------------------------------------------------------
@@ -558,10 +565,12 @@ def run_main_window():
             selected_trids = window.metadata.get("selected_trids")
 
             if not run or not sample_name:
+                logging.warning("User tried to launch analysis but no ZIP archive or patient sample was selected.")
                 window["-STATUS-"].update("Veuillez sélectionner un ZIP et un patient", text_color="red")
                 continue
 
             if not selected_trids:
+                logging.warning("User tried to launch analysis but no loci were selected.")
                 window["-STATUS-"].update("Veuillez sélectionner au moins un locus", text_color="red")
                 continue
 
@@ -578,7 +587,7 @@ def run_main_window():
                 for trid_id in selected_trids
                 if trid_id in run.trids
             }
-            print(fasta_path)
+
             analysis_input = AnalysisInput(
                 sample_name=sample_name,
                 trids=trids_global,
@@ -597,83 +606,26 @@ def run_main_window():
                 label_priority=window.metadata["label_priority"]
             )
 
-            print("\n====================================")
-            print("=== ANALYSIS INPUT STRUCTURE DUMP ===")
-            print("====================================\n")
+            # Logs de lancement de l'analyse et suivi du génome de référence
+            logging.info(f"Initiating clinical analysis for patient: '{sample_name}' - Loci selected: {len(selected_trids)}")     
 
-            print(f"Sample name : {analysis_input.sample_name}")
-            print(f"TRIDs sélectionnés : {analysis_input.ordered_trids}")
-
-            print("\n--- TRIDs GLOBAUX ---")
-            for trid_id, trid in analysis_input.trids.items():
-                print(f"\n>>> TRID : {trid_id}")
-                print(f"  chrom  = {trid.chrom}")
-                print(f"  start  = {trid.start}")
-                print(f"  end    = {trid.end}")
-                print(f"  motifs = {trid.motifs}")
-
-                if trid.clinical:
-                    print("  ClinicalConfig :")
-                    print(f"    mode        = {trid.clinical.classification_mode}")
-                    print(f"    orientation = {trid.clinical.orientation}")
-                    print(f"    groups      = {list(trid.clinical.groups.keys())}")
-                else:
-                    print("  ClinicalConfig : None")
-
-            print("\n--- SAMPLES ASSOCIÉS ---")
-            for trid_id, sample in analysis_input.samples.items():
-                print(f"\n>>> TRID : {trid_id}")
-
-                if sample is None:
-                    print("  Aucun sample TRGT pour ce TRID")
-                    continue
-
-                a1 = sample.allele1
-                a2 = sample.allele2
-
-                print("  Allele 1 :")
-                print(f"    size        = {a1.size}")
-                print(f"    range       = {a1.size_range}")
-                print(f"    depth       = {a1.depth}")
-                print(f"    purity      = {a1.purity}")
-                print(f"    methylation = {a1.methylation}")
-                print(f"    consensus   = {a1.sequence.sequence}")
-                print(f"    MC          = {a1.sequence.repetitions}")
-                print(f"    MS          = {a1.sequence.segmentation}")
-                print(f"    MS_complete = {a1.sequence.segmentation_complete}")
-                print(f"    interruptions = {a1.sequence.interruptions}")
-
-                print("  Allele 2 :")
-                print(f"    size        = {a2.size}")
-                print(f"    range       = {a2.size_range}")
-                print(f"    depth       = {a2.depth}")
-                print(f"    purity      = {a2.purity}")
-                print(f"    methylation = {a2.methylation}")
-                print(f"    consensus   = {a2.sequence.sequence}")
-                print(f"    MC          = {a2.sequence.repetitions}")
-                print(f"    MS          = {a2.sequence.segmentation}")
-                print(f"    MS_complete = {a2.sequence.segmentation_complete}")
-                print(f"    interruptions = {a2.sequence.interruptions}")
-
-
-            print("\n--- PATHS ---")
-            for k, v in analysis_input.paths.items():
-                print(f"{k:20s} : {v}")
-
-            print("\n--- LABEL PRIORITY ---")
-            print(analysis_input.label_priority)
-
-            print("\n====================================")
-            print("=== END OF STRUCTURE DUMP ===")
-            print("====================================\n")
-
+            # --- DEBUG ---
+            logging.debug(f"AnalysisInput structure created for sample '{analysis_input.sample_name}':")
+            logging.debug(f"    Selected loci list: {analysis_input.ordered_trids}")
+            for path_key, path_val in analysis_input.paths.items():
+                logging.debug(f"    Param path -> {path_key}: {path_val}")
+            
+            logging.info("Executing clinical classification algorithms...")
             process_clinical(analysis_input)
+
+            logging.info("Formatting analytical results...")
             process_result(analysis_input)
 
-            results = []   # ← liste de Result
+            results = []   # liste de Result
 
             for trid_id, sample in analysis_input.samples.items():
                 if not sample or not sample.result:
+                    logging.warning(f"Locus '{trid_id}' was requested but no valid sample data or classification result was found.")
                     continue
 
                 clinical_cfg = analysis_input.trids[trid_id].clinical
@@ -684,8 +636,9 @@ def run_main_window():
                 # On stocke l'objet Result complet
                 results.append(sample.result)
                 
-            # Maintenant on appelle l'UI avec la liste de Result
-            print(f"[INFO] Lancement de la fenêtre des résultats avec les chemins d'accès : {analysis_input.paths}")
+            # Appelle l'UI avec la liste de Result
+            logging.info(f"Analysis completed. Successfully processed {len(results)}/{len(selected_trids)} loci.")
+            logging.info(f"Opening results visualization window for patient: '{sample_name}'")
             show_results_window(
                 sample_name=sample_name.replace(".trgt.vcf", ""),
                 results=results,

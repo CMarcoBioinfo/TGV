@@ -1,11 +1,13 @@
 import os
 import tempfile
 import webbrowser
+import logging
 from pathlib import Path
 
 
 def generate_html_table(headers, rows, sample_name):
     """Construit un tableau HTML complet, interactif et instantané (sans dépendances externes)."""
+    logging.info(f"Generating export HTML table for patient '{sample_name}' with {len(rows)} selected rows.")
 
     # Pré-génération du tableau
     thead_html = (
@@ -378,10 +380,18 @@ def generate_html_table(headers, rows, sample_name):
 
 def save_and_open_html(html_content):
     """Enregistre le HTML dans un fichier temporaire et l’ouvre de manière robuste sur tous les OS."""
-    tmp_path = os.path.join(tempfile.gettempdir(), "trgt_table.html")
-    with open(tmp_path, "w", encoding="utf-8") as f:
-        f.write(html_content)
+    logging.info("Saving temporary HTML table export file...")
+    try:
+        tmp_path = os.path.join(tempfile.gettempdir(), "trgt_table.html")
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            f.write(html_content)
+        logging.debug(f"Temporary export file successfully written at: {tmp_path}")
 
-    # Path().as_uri() s'occupe de mettre le bon nombre de slashes selon l'OS (Windows vs Unix)
-    uri = Path(tmp_path).as_uri()
-    webbrowser.open(uri)
+        # Path().as_uri() s'occupe de mettre le bon nombre de slashes selon l'OS (Windows vs Unix)
+        uri = Path(tmp_path).as_uri()
+        logging.info(f"Opening webbrowser for HTML table export at: {uri}")
+        webbrowser.open(uri)
+    except Exception as e:
+        logging.error(f"Failed to generate or open temporary HTML table export: {e}", exc_info=True)
+        import PySimpleGUI as sg
+        sg.popup_error(f"Impossible de générer ou d'ouvrir le rapport d'exportation temporaire :\n{e}")

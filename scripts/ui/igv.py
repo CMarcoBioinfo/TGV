@@ -10,6 +10,7 @@ import socketserver
 import re
 import json
 import socket
+import logging
 import urllib.parse
 import PySimpleGUI as sg
 
@@ -123,6 +124,7 @@ def is_online():
     """
     Vérifie rapidement (en 1.5 seconde max) si une connexion Internet est active.
     """
+    logging.debug("Probing active internet connection (pinging s3.amazonaws.com)...")
     try:
         socket.setdefaulttimeout(1.5)
         socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect(("s3.amazonaws.com", 443))
@@ -231,25 +233,34 @@ def start_local_server(directory):
     global CURRENT_SERVER
     stop_local_server()
 
+    logging.info(f"Starting local HTTP server for directory: {directory}")
     handler = lambda *args, **kwargs: RangeRequestHandler(*args, directory=directory, **kwargs)
-    server = socketserver.TCPServer(("127.0.0.1", 0), handler)
-    port = server.socket.getsockname()[1]
     
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    
-    CURRENT_SERVER = server
-    return port
+    try:
+        server = socketserver.TCPServer(("127.0.0.1", 0), handler)
+        port = server.socket.getsockname()[1]
+        
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        
+        CURRENT_SERVER = server
+        logging.info(f"Local HTTP server successfully started on port: {port}")
+        return port
+    except Exception as e:
+        logging.error(f"Failed to start local HTTP server: {e}")
+        raise e
 
 
 def stop_local_server():
     global CURRENT_SERVER
     if CURRENT_SERVER:
+        logging.info("Stopping active local HTTP server...")
         try:
             CURRENT_SERVER.shutdown()
             CURRENT_SERVER.server_close()
-        except Exception:
-            pass
+            logging.info("Local HTTP server stopped successfully.")
+        except Exception as e:
+            logging.warning(f"Error while shutting down local HTTP server: {e}")
         CURRENT_SERVER = None
 
 
@@ -257,6 +268,7 @@ def cleanup_tmpdir_force():
     global CURRENT_TMPDIR
     stop_local_server()
     if CURRENT_TMPDIR:
+        logging.info(f"Cleaning up temporary IGV directory: {CURRENT_TMPDIR}")
         shutil.rmtree(CURRENT_TMPDIR, ignore_errors=True)
         CURRENT_TMPDIR = None
 
@@ -281,6 +293,28 @@ def get_asset_path(filename):
     dev_root_dir = os.path.abspath(os.path.join(script_dir, "..", ".."))
     return os.path.join(dev_root_dir, 'assets', filename)
 
+
+def get_igv_js_version():
+    """
+    extraire dynamiquement la version d'igv.js à partir du fichier igv.min.js.
+    """
+    asset_path = get_asset_path("igv.min.js")
+    if os.path.exists(asset_path):
+        try:
+            with open(asset_path, "r", encoding="utf-8", errors="ignore") as f:
+                # On lit les 500 premiers caractères (l'en-tête contient toujours la version)
+                header = f.read(500)
+                match = re.search(r"igv\.js\s+v?([0-9.]+)", header)
+                if match:
+                    return match.group(1)
+        except Exception:
+            pass
+    return "unknown"
+
+
+# ---------------------------------------------------------------------------
+#  4. Lancement d'igv.js
+# ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
 #  4. Lancement d'igv.js
@@ -309,10 +343,14 @@ def open_igv(genome_fasta_path=None,
 
     # Si on n'a pas de génome local valide ET qu'on n'a pas Internet, impossible de continuer
     if not has_local_fasta and not online_mode:
-        sg.popup("Erreur de configuration", 
+        logging.error("IGV launch failed: No local reference genome index (.fai) found and no active internet connection.")
+        sg.popup("Erreur de configuration",
                  "Aucun génome local valide trouvé et aucune connexion Internet active.\n"
                  "Veuillez sélectionner un génome de référence local (.fa et .fai) pour travailler hors-ligne.")
         return
+
+    igv_version = get_igv_js_version()
+    logging.info(f"Initiating igv.js (v{igv_version}) session for patient sample: '{sample_name}'")
 
     # --- Étape 2 : Extraction des coordonnées et métadonnées ---
     r_obj = None
@@ -342,6 +380,7 @@ def open_igv(genome_fasta_path=None,
     # --- Étape 3 : Définition de l'option de Génome pour IGV.js ---
     if has_local_fasta:
         # En mode local, on configure le dossier pour notre serveur web local
+        logging.info(f"Configuring local reference genome: {fasta_filename}")
         CURRENT_GENOME_DIR = os.path.dirname(genome_fasta_path)
         genome_option_js = json.dumps({
             "id": "local_genome",
@@ -351,20 +390,25 @@ def open_igv(genome_fasta_path=None,
         }, indent=4)
     else:
         # En mode distant, on passe simplement l'identifiant de référence hébergé par IGV
+        logging.info("Configuring remote hg38 genome reference track (online mode).")
         genome_option_js = '"hg38"'
 
     # --- Étape 4 : Extraction des fichiers dans le dossier temporaire ---
     cleanup_tmpdir_force()
     CURRENT_TMPDIR = tempfile.mkdtemp()
+    logging.debug(f"Created temporary IGV folder at: {CURRENT_TMPDIR}")
 
     asset_js_path = get_asset_path("igv.min.js")
     if not os.path.exists(asset_js_path):
+        logging.error(f"Missing igv.min.js static asset at path: {asset_js_path}")
         sg.popup("Erreur d'initialisation d'igv.js", f"Le fichier 'igv.min.js' est introuvable à : {asset_js_path}")
         return
 
     try:
         shutil.copy(asset_js_path, os.path.join(CURRENT_TMPDIR, "igv.min.js"))
+        logging.debug("Copied igv.min.js asset to temporary folder.")
     except Exception as e:
+        logging.error(f"Failed to copy igv.min.js to temporary directory: {e}")
         sg.popup(f"Erreur d'initialisation d'igv.js :\n{e}")
         return
 
@@ -388,10 +432,12 @@ def open_igv(genome_fasta_path=None,
     #  B. Extraction et configuration du Spanning BAM
     # -----------------------------------------------------------------------
     if spanning_zip_path and spanning_bam_file and spanning_bai_file:
+        logging.info(f"Extracting spanning BAM alignments for locus {chrom}:{start}-{end}...")
         try:
             with zipfile.ZipFile(spanning_zip_path, "r") as z:
                 z.extract(spanning_bam_file, CURRENT_TMPDIR)
                 z.extract(spanning_bai_file, CURRENT_TMPDIR)
+            logging.info(f"Successfully extracted spanning BAM: {spanning_bam_file}")
             tracks.append({
                 "name": f"Spanning BAM - {sample_name}",
                 "url": f"./{spanning_bam_file}",
@@ -410,16 +456,19 @@ def open_igv(genome_fasta_path=None,
                 }
             })
         except Exception as e:
+            logging.error(f"Failed to extract spanning BAM alignment tracks from archive: {e}")
             sg.popup(f"Erreur extraction spanning BAM :\n{e}")
 
     # -----------------------------------------------------------------------
     #  C. Extraction et configuration du Mapped BAM (BAM Classique)
     # -----------------------------------------------------------------------
     if mapped_zip_path and mapped_bam_file and mapped_bai_file:
+        logging.info(f"Extracting mapped BAM alignments for locus {chrom}:{start}-{end}...")
         try:
             with zipfile.ZipFile(mapped_zip_path, "r") as z:
                 z.extract(mapped_bam_file, CURRENT_TMPDIR)
                 z.extract(mapped_bai_file, CURRENT_TMPDIR)
+            logging.info(f"Successfully extracted mapped BAM: {mapped_bam_file}")
             tracks.append({
                 "name": f"Mapped BAM - {sample_name}",
                 "url": f"./{mapped_bam_file}",
@@ -438,6 +487,7 @@ def open_igv(genome_fasta_path=None,
                 }
             })
         except Exception as e:
+            logging.error(f"Failed to extract mapped BAM alignment tracks from archive: {e}")
             sg.popup(f"Erreur extraction mapped BAM :\n{e}")
 
     if not tracks:
@@ -559,11 +609,11 @@ def open_igv(genome_fasta_path=None,
         <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: white; padding: 20px 25px; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255, 255, 255, 0.15); padding-bottom: 15px; margin-bottom: 15px;">
                 <div>
-                    <h1 style="margin: 0; font-size: 1.5rem; font-weight: 700; color: #f8fafc; letter-spacing: -0.025em;">Visualisation Génomique Clinique</h1>
-                    <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #94a3b8;">Analyse des répétitions en tandem (TRGT)</p>
+                    <h1 style="margin: 0; font-size: 1.5rem; font-weight: 700; color: #f8fafc; letter-spacing: -0.025em;">TGV - TRGT Global Viewer</h1>
+                    <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #94a3b8;">Visualisation IGV</p>
                 </div>
                 <div style="text-align: right;">
-                    <div style="font-size: 1.25rem; font-weight: 700; color: #38bdf8;">Patient : {sample_name}</div>
+                    <div style="font-size: 1.25rem; font-weight: 700; color: #e8457a;">Patient : <span style="color: #e8457a;">{sample_name}</span></div>
                     <div style="font-size: 0.85rem; color: #cbd5e1; margin-top: 4px; font-weight: 500;">
                         Locus : <span style="font-family: monospace; background: rgba(255,255,255,0.15); padding: 2px 6px; border-radius: 4px;">{chrom}:{start}-{end}</span>
                     </div>
@@ -611,11 +661,11 @@ def open_igv(genome_fasta_path=None,
         clinical_header_html = f"""
         <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: white; padding: 18px 25px; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
             <div>
-                <h1 style="margin: 0; font-size: 1.5rem; font-weight: 700; color: #f8fafc;">Visualisation Génomique Clinique</h1>
+                <h1 style="margin: 0; font-size: 1.5rem; font-weight: 700; color: #f8fafc;">TGV - TRGT Global Viewer</h1>
                 <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #94a3b8;">Analyse de répétitions en tandem (TRGT)</p>
             </div>
             <div style="text-align: right;">
-                <div style="font-size: 1.2rem; font-weight: 700; color: #38bdf8;">ID Patient : {sample_name}</div>
+                <div style="font-size: 1.2rem; font-weight: 700; color: #e8457a;">ID Patient : <span style="color: #e8457a;">{sample_name}</span></div>
                 <div style="font-size: 0.85rem; color: #cbd5e1; margin-top: 4px; font-weight: 500;">
                     Locus : <span style="font-family: monospace; background: rgba(255,255,255,0.15); padding: 2px 6px; border-radius: 4px;">{chrom}:{start}-{end}</span>
                 </div>
@@ -664,6 +714,8 @@ def open_igv(genome_fasta_path=None,
     try:
         port = start_local_server(CURRENT_TMPDIR)
         url = f"http://127.0.0.1:{port}/index.html"
+        logging.info(f"Launching webbrowser visualization at: {url}")
         webbrowser.open(url)
     except Exception as e:
+        logging.error(f"Failed to open igv.js session: {e}")
         sg.popup(f"Impossible de lancer igv.js :\n{e}")

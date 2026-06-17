@@ -1,3 +1,5 @@
+import logging
+
 from scripts.models.trid import TRID
 from scripts.models.sample import Sample
 from scripts.models.result import Result
@@ -19,7 +21,6 @@ def process_result(analysis_input):
     for trid_id, trid_global, sample in analysis_input.iter_items():
 
         if sample.result:
-            print("VOUS NE PASSEREZ PAS")
             continue
 
         a1 = sample.allele1
@@ -97,7 +98,7 @@ def process_clinical(analysis_input):
     label_priority = analysis_input.label_priority
     max_score = max(label_priority.values())
 
-    print(f"\n=== SAMPLE: {analysis_input.sample_name} ===")
+    logging.info(f"Executing clinical guidelines evaluation for sample: '{analysis_input.sample_name}'")
 
     # Liste des TRIDs en discordance BED ↔ clinique
     discordances = []
@@ -105,16 +106,12 @@ def process_clinical(analysis_input):
     for trid_id, trid_global, sample in analysis_input.iter_items():
 
         if sample.allele1.clinical:
-            print("VOUS NE PASSEZ PAS 2")
+            logging.debug(f"Clinical classification already computed for locus '{trid_id}'. Skipping recalculation.")
             continue
-
-        print(f"\n==============================")
-        print(f"=== TRID: {trid_id}")
-        print(f"==============================")
 
         clinical_cfg = trid_global.clinical
         if clinical_cfg is None:
-            print("  Pas de config clinique pour ce TRID.")
+            logging.debug(f"No clinical guidelines configuration found in YAML for locus '{trid_id}'. Skipping.")
             continue
 
         repeat_mode = clinical_cfg.repeat_mode
@@ -125,10 +122,10 @@ def process_clinical(analysis_input):
 
         for idx, allele in enumerate(alleles, start=1):
 
-            print(f"\n  --- Allele {idx} ---")
-            print(f"  Repetitions: {allele.sequence.repetitions}")
-            print(f"  Segmentation: {allele.sequence.segmentation}")
-            print(f"  Sequence (raw): {allele.sequence.sequence[:50]}...")
+            logging.debug(f"Processing allele {idx} for locus '{trid_id}':")
+            logging.debug(f"  Repetitions: {allele.sequence.repetitions}")
+            logging.debug(f"  Segmentation: {allele.sequence.segmentation}")
+            logging.debug(f"  Sequence preview: {allele.sequence.sequence[:50]}...")
 
             allele.trgt_groups = {}
 
@@ -152,7 +149,7 @@ def process_clinical(analysis_input):
 
                 # --- CAS 1 : data est None → mismatch motifs BED / clinique ---
                 if data is None:
-                    print(f"    [WARNING] Aucun motif du groupe {group_id} trouvé dans le TRGT → data=None")
+                    logging.warning(f"Locus '{trid_id}' mismatch: No motifs of clinical group '{group_id}' found in TRGT outputs.")
                     allele.trgt_groups[group_id] = None
                     continue
 
@@ -168,10 +165,8 @@ def process_clinical(analysis_input):
                 data.clinical = clinical_label
 
                 # Debug
-                print(f"\n    Group: {group_id}")
-                print(f"    Motifs: {group.motifs}")
-                print(f"    Decomposition:")
-                print(f"      {data}")
+                logging.debug(f"  Clinical group evaluation details - Group: {group_id} | Motifs: {group.motifs}")
+                logging.debug(f"  Decomposition: {data}")
 
                 allele.trgt_groups[group_id] = data
 
@@ -200,7 +195,7 @@ def process_clinical(analysis_input):
 
             # --- Aucun groupe valide trouvé ---
             if best_group is None:
-                print("    [ERROR] Aucun groupe clinique valide pour cet allèle → clinical=None")
+                logging.error(f"No valid clinical threshold group resolved for allele {idx} of locus '{trid_id}'.")
                 allele.clinical = None
                 discordances.append(trid_id)
                 continue
@@ -211,6 +206,7 @@ def process_clinical(analysis_input):
 
     # --- POPUP UNIQUE POUR TOUTES LES DISCORDANCES ---
     if discordances:
+        logging.warning(f"Clinical/genomic discordances resolved for loci: {list(set(discordances))}")
         message = (
             "Discordance entre les motifs TRGT (BED) et les seuils cliniques définis dans "
             "clinical_thresholds.yaml pour les locus suivants :\n\n"

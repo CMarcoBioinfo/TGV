@@ -1,4 +1,5 @@
 import zipfile
+import logging
 
 from scripts.models.trid import TRID
 from scripts.models.sample import Sample
@@ -82,6 +83,7 @@ def get_consensus_sequences(ref, alt, gt):
                 if idx - 1 < len(alt_list):
                     seq = alt_list[idx - 1]
                 else:
+                    logging.warning(f"VCF format anomaly: Genotype index '{idx}' points to a non-existent alternative allele (ALT list len={len(alt_list)}). Defaulting to REF.")
                     seq = ref
 
         # TRGT : toujours une base de padding en tête → on l'enlève
@@ -97,7 +99,14 @@ def parse_vcf_for_sample(zip_path, vcf_filename, global_trids):
     """
     samples = {}
 
+    logging.info(f"Opening VCF file '{vcf_filename}' inside archive '{zip_path}'")
+
     with zipfile.ZipFile(zip_path, "r") as z:
+        # Sécurité : vérifier que le fichier VCF existe bien dans l'archive
+        if vcf_filename not in z.namelist():
+            logging.error(f"VCF file '{vcf_filename}' was not found inside TRGT ZIP archive '{zip_path}'.")
+            raise FileNotFoundError(f"VCF file '{vcf_filename}' not found in ZIP.")
+        
         with z.open(vcf_filename) as f:
             for raw in f:
                 line = raw.decode("utf-8").strip()
@@ -210,5 +219,11 @@ def parse_vcf_for_sample(zip_path, vcf_filename, global_trids):
 
                 sample_obj.allele1 = allele1
                 sample_obj.allele2 = allele2
+
+    # Bilan de fin de parsing pour l'audit de qualité
+    if not samples:
+        logging.warning(f"No genomic loci were successfully parsed from VCF file '{vcf_filename}'.")
+    else:
+        logging.info(f"Successfully parsed {len(samples)} loci from patient VCF '{vcf_filename}'.")
 
     return samples

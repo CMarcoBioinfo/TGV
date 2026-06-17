@@ -2,6 +2,7 @@ import PySimpleGUI as sg
 import os
 import shutil
 import tempfile
+import logging
 
 from scripts.core.config_manager import load_ui_settings, save_ui_settings
 from scripts.core.plots import open_svg, get_available_plots
@@ -20,12 +21,12 @@ def can_open_igv(r, paths, sample_name, online_status):
     span = get_available_spanning_bam(paths, sample_name)
     mapped = get_available_bam(paths, sample_name)
     
-    print(f"\n[DÉBOGAGE IGV] Locus: {r.chrom}:{r.start}-{r.end}")
-    print(f"  - Spanning BAM trouvé : {span is not None}")
-    print(f"  - Mapped BAM trouvé   : {mapped is not None}")
+    logging.debug(f"IGV validation for locus: {r.chrom}:{r.start}-{r.end}")
+    logging.debug(f"  - Spanning BAM found: {span is not None}")
+    logging.debug(f"  - Mapped BAM found: {mapped is not None}")
     
     if not (span or mapped):
-        print("  -> Bouton désactivé : Aucun fichier BAM trouvé pour ce patient.")
+        logging.debug("Button disabled: No BAM alignment file found for this patient.")
         return False
 
     # 2. Vérification du génome
@@ -35,16 +36,16 @@ def can_open_igv(r, paths, sample_name, online_status):
         if os.path.isfile(fasta + ".fai"):
             has_local_fasta = True
         else:
-            print(f"  - Alerte : Fichier d'index manquant pour le FASTA local ({fasta}.fai)")
+            logging.debug(f"  - Alert: Missing index file for local FASTA ({fasta}.fai)")
     else:
-        print(f"  - FASTA local introuvable au chemin indiqué : {fasta}")
+        logging.debug(f"  - Local FASTA not found at path: {fasta}")
 
-    print(f"  - Génome local valide : {has_local_fasta}")
-    print(f"  - Connexion Internet  : {online_status}")
+    logging.debug(f"  - Valid local reference genome: {has_local_fasta}")
+    logging.debug(f"  - Internet connection active: {online_status}")
 
     # Autorisé si on a le génome local OU si on est connecté à Internet (fallback hg38)
     decision = has_local_fasta or online_status
-    print(f"  => Décision d'activation : {decision}")
+    logging.debug(f" Activation decision: {decision}")
     return decision
 
 
@@ -181,10 +182,10 @@ def show_results_window(sample_name, results, label_priority, paths, online_stat
     # Déterminer la position (coordonnées)
     if saved_x is not None and saved_y is not None:
         win_location = (saved_x, saved_y)
-        print(f"[DEBUG WINDOW] Position RESTAURÉE depuis le fichier de config : {win_location}")
+        logging.debug(f"Restored window position from configuration file: {win_location}")
     else:
         win_location = (50, 40)  # 50px de marge à gauche, 40px en haut pour éviter d'être collé
-        print(f"[DEBUG WINDOW] Aucune config de position. Application de la position par défaut : {win_location}")
+        logging.debug(f"No window position config found. Applying default location: {win_location}")
 
     # --- 2. Créer la fenêtre en passant directement le paramètre "location" ---
     window = sg.Window(
@@ -200,17 +201,17 @@ def show_results_window(sample_name, results, label_priority, paths, online_stat
     try:
         window.TKroot.protocol("WM_DELETE_WINDOW", lambda: None)
     except Exception as e:
-        print(f"[WARN] Impossible de bloquer le bouton X : {e}")
+        logging.warning(f"Could not disable system window close button: {e}")
 
     # --- 4. Appliquer la taille de la fenêtre après finalisation ---
     if saved_w and saved_h:
         window.set_size((saved_w, saved_h))
-        print(f"[DEBUG WINDOW] Taille RESTAURÉE appliquée : {(saved_w, saved_h)}")
+        logging.debug(f"Restored window size applied: {(saved_w, saved_h)}")
     else:
         screen_w, screen_h = sg.Window.get_screen_size()
         # On réduit à screen_w - 100 pour laisser une marge propre de 50px de chaque côté de l'écran
         window.set_size((screen_w - 100, screen_h - 120))
-        print(f"[DEBUG WINDOW] Aucune config de taille. Application de la taille par défaut : {(screen_w - 100, screen_h - 120)}")
+        logging.debug(f"No window size config found. Applying default dimensions: {(screen_w - 100, screen_h - 120)}")
 
     # --- 5. Appliquer les largeurs des colonnes ---
     if saved_cols:
@@ -220,7 +221,7 @@ def show_results_window(sample_name, results, label_priority, paths, online_stat
             for col_key, col_w_px in zip(cols_keys, saved_cols):
                 table_widget.column(col_key, width=col_w_px)
         except Exception as e:
-            print(f"[WARN] Erreur lors de la restauration des colonnes : {e}")
+            logging.warning(f"Error during column widths restoration: {e}")
 
     # Étape 2 : Sélection automatique de la première ligne au démarrage
     if rows:
@@ -243,16 +244,16 @@ def show_results_window(sample_name, results, label_priority, paths, online_stat
                 # Extraction ultra-précise des coordonnées Tkinter pour éviter la dérive
                 import re
                 geom = window.TKroot.geometry() # Retourne une chaîne du type "1200x800+100+150"
-                print(f"\n[DEBUG WINDOW] Géométrie Tkinter brute relevée à la fermeture : {geom}")
+                logging.debug(f"Raw Tkinter window geometry detected at closing: {geom}")
                 
                 match = re.search(r'([+-]?\d+)([+-]\d+)$', geom)
                 if match:
                     curr_x = int(match.group(1))
                     curr_y = int(match.group(2))
-                    print(f"[DEBUG WINDOW] Coordonnées lues par Regex : x={curr_x}, y={curr_y}")
+                    logging.debug(f"Coordinates matched via Regex: x={curr_x}, y={curr_y}")
                 else:
                     curr_x, curr_y = window.current_location() # Fallback au cas où
-                    print(f"[DEBUG WINDOW] Échec Regex. Coordonnées via current_location : x={curr_x}, y={curr_y}")
+                    logging.debug(f"Regex match failed. Falling back to current_location coordinates: x={curr_x}, y={curr_y}")
                 
                 table_widget = window["-TABLE-"].Widget
                 col_widths_px = []
@@ -268,10 +269,11 @@ def show_results_window(sample_name, results, label_priority, paths, online_stat
                     "column_widths": col_widths_px
                 }
                 save_ui_settings(ui_settings)
+                logging.debug("Successfully saved window size and position settings.")
             except Exception as e:
-                print(f"[WARN] Erreur lors de l'enregistrement de la configuration : {e}")
-            # -----------------------------------------------------
+                logging.warning(f"Error saving UI geometry settings: {e}")
 
+            # -----------------------------------------------------
             # Cleanup des SVG temporaires
             tmp_dir = os.path.join(tempfile.gettempdir(), ".tmp_plots", sample_name)
             if os.path.isdir(tmp_dir):
@@ -413,6 +415,8 @@ def show_results_window(sample_name, results, label_priority, paths, online_stat
             r.classification2_bio = new_a2
 
             new_final = f"{new_a1} / {new_a2}"
+            logging.info(f"Audit Trail: Manual classification override for locus '{r.trid}' set to: {new_final}")
+
             r.display_row.classification = new_final
             row["Classification"] = new_final
 
@@ -442,6 +446,7 @@ def show_results_window(sample_name, results, label_priority, paths, online_stat
             r.classification2_bio = None
 
             row["Classification"] = auto
+            logging.info(f"Audit Trail: Reset classification for locus '{r.trid}' to auto-detected default: {auto}")
             r.display_row.classification = auto
 
             table_data[idx][5] = auto
@@ -574,6 +579,7 @@ def show_results_window(sample_name, results, label_priority, paths, online_stat
 
             r.genotype1_bio = g1_bio
             r.genotype2_bio = g2_bio
+            logging.info(f"Audit Trail: Manual genotype override for locus '{r.trid}' set to: {g1_val} / {g2_val} (Auto-detected was: {raw1_str} / {raw2_str})")
 
             # Formatage pour l'affichage final
             display_g1 = str(g1_bio) if g1_bio is not None else "None"

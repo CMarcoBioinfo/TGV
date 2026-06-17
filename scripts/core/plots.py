@@ -9,6 +9,7 @@ from pathlib import Path
 import http.server
 import socketserver
 import subprocess
+import logging
 
 
 def get_available_plots(zip_path, sample_name, trid):
@@ -17,9 +18,6 @@ def get_available_plots(zip_path, sample_name, trid):
     pour un TRID donné dans un ZIP imbriqué TRGT/TRVZ.
     """
 
-    print(zip_path)
-    print(sample_name)
-    print(trid)
     if not zip_path or not os.path.exists(zip_path):
         return []
 
@@ -39,7 +37,7 @@ def get_available_plots(zip_path, sample_name, trid):
                                 results.append((name, target))
 
     except Exception as e:
-        print(f"[WARN] Impossible de lire les plots dans {zip_path} : {e}")
+        logging.warning(f"Failed to read plots from archive '{zip_path}': {e}")
 
     return results
 
@@ -51,6 +49,7 @@ def open_svg(zip_path, inner_zip, svg_file, sample_name):
     le sert via un mini-serveur HTTP local sur un port dynamique,
     et l'ouvre dans le navigateur par défaut.
     """
+    logging.info(f"Extracting SVG plot '{svg_file}' from nested archive: '{inner_zip}'")
     try:
         # --- Extraction du SVG ---
         with zipfile.ZipFile(zip_path, "r") as outer:
@@ -64,6 +63,7 @@ def open_svg(zip_path, inner_zip, svg_file, sample_name):
         os.makedirs(tmp_dir, exist_ok=True)
 
         svg_tmp_path = os.path.join(tmp_dir, svg_file)
+        logging.debug(f"Writing temporary SVG plot file to: {svg_tmp_path}")
 
         with open(svg_tmp_path, "wb") as f:
             f.write(svg_bytes)
@@ -74,19 +74,22 @@ def open_svg(zip_path, inner_zip, svg_file, sample_name):
                 super().__init__(*args, directory=tmp_dir, **kwargs)
 
         # port = 0 → OS choisit un port libre automatiquement
+        logging.info("Starting local HTTP server for SVG plot (dynamic port)...")
         httpd = socketserver.TCPServer(("127.0.0.1", 0), Handler)
 
         # Récupérer le port choisi
         port = httpd.server_address[1]
+        logging.info(f"SVG local HTTP server successfully started on port: {port}")
 
         # Lancer le serveur en arrière-plan
         threading.Thread(target=httpd.serve_forever, daemon=True).start()
 
         # --- Ouvrir dans le navigateur par défaut ---
         url = f"http://127.0.0.1:{port}/{svg_file}"
+        logging.info(f"Launching web browser for SVG visualization at: {url}")
 
         # URL unique → nouvel onglet garanti
         webbrowser.open(f"{url}?t={time.time()}")
 
     except Exception as e:
-        print(f"[ERROR] Impossible d'ouvrir le SVG {svg_file} : {e}")
+        logging.error(f"Failed to extract or serve SVG plot '{svg_file}': {e}", exc_info=True)

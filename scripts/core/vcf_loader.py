@@ -1,12 +1,13 @@
 import zipfile
 import os
+import logging
 
 def list_vcfs(zip_path):
     """Retourne la liste des fichiers VCF dans un ZIP."""
-    print(f"[INFO] Lecture du ZIP : {zip_path}")
+    logging.info(f"Reading VCF archive ZIP: {zip_path}")
 
     if not os.path.exists(zip_path):
-        print(f"[ERROR] ZIP introuvable : {zip_path}")
+        logging.error(f"ZIP archive not found: {zip_path}")
         return []
 
     try:
@@ -20,8 +21,8 @@ def list_vcfs(zip_path):
                     ):
                         vcfs.append(f)
                         
-                print(f"[INFO] {len(vcfs)} VCF réels trouvés dans le ZIP")
+                logging.info(f"Found {len(vcfs)} valid VCF files inside ZIP archive.")
                 return vcfs
     except Exception as e:
-        print(f"[ERROR] Impossible d'ouvrir le ZIP : {e}")
+        logging.error(f"Failed to open ZIP archive: {e}")
         return []

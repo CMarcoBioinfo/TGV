@@ -1,6 +1,7 @@
 import os
 import sys
 import yaml
+import logging
 from functools import lru_cache
 from scripts.core.config_manager import get_safe_config_path
 
@@ -22,13 +23,14 @@ def load_clinical_thresholds():
         with open(yaml_path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
             if data is None:
-                print(f"[WARN] clinical_thresholds.yaml est vide.")
+                logging.warning("clinical_thresholds.yaml is empty.")
                 return {}
-            print(f"[INFO] Fichier de seuils chargé depuis : {yaml_path}")
+
+            logging.info(f"Clinical thresholds successfully loaded from: {yaml_path}")
             return data
 
     except Exception as e:
-        print(f"[WARN] Erreur lors du chargement de clinical_thresholds.yaml : {e}")
+        logging.warning(f"Failed to load clinical_thresholds.yaml: {e}")
         return {}
 
 

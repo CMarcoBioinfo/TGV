@@ -4,6 +4,7 @@ import json
 import shutil
 import getpass
 import platform
+import logging
 
 # Extraction de l'utilisateur et de la machine physique (ex: ui_settings_pmartin_PC-MANIP.json)
 username = getpass.getuser()
@@ -39,9 +40,9 @@ def get_safe_config_path(filename, folder="configs"):
         try:
             os.makedirs(external_dir, exist_ok=True)
             shutil.copy(internal_path, external_path)
-            print(f"[INFO] Configuration par défaut recréée à l'emplacement : {external_path}")
+            logging.info(f"Recreated default thresholds file at external path: '{external_path}'")
         except Exception as e:
-            print(f"[WARN] Impossible de copier le fichier par défaut vers {external_path} : {e}")
+            logging.warning(f"Could not copy default thresholds file to {external_path}: {e}")
             return internal_path
 
     # On utilise le fichier externe s'il existe (pour que l'utilisateur puisse le modifier)
@@ -80,27 +81,27 @@ def get_config_path():
 def load_ui_settings():
     """Charge les paramètres d'affichage."""
     path = get_config_path()
-    print(f"\n[DEBUG CONFIG] Lecture du fichier : {os.path.abspath(path)}")
+    logging.debug(f"Reading user UI settings file: '{os.path.abspath(path)}'")
     if not os.path.exists(path):
-        print("[DEBUG CONFIG] Aucun fichier de configuration trouvé pour le moment.")
+        logging.debug("No user UI settings file found on disk.")
         return {}
     try:
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
-            print(f"[DEBUG CONFIG] Données chargées avec succès : {data}")
+            logging.debug(f"Successfully loaded user UI settings: {data}")
             return data
     except Exception as e:
-        print(f"[DEBUG CONFIG] [WARN] Impossible de lire {path} : {e}")
+        logging.warning(f"Could not read user UI settings file from {path}: {e}")
         return {}
 
 
 def save_ui_settings(settings):
     """Sauvegarde les paramètres d'affichage."""
     path = get_config_path()
-    print(f"\n[DEBUG CONFIG] Écriture dans le fichier : {os.path.abspath(path)}")
+    logging.debug(f"Writing user UI settings to file: '{os.path.abspath(path)}'")
     try:
         with open(path, "w", encoding="utf-8") as f:
             json.dump(settings, f, indent=4, ensure_ascii=False)
-            print("[DEBUG CONFIG] Sauvegarde réussie sur le disque.")
+            logging.debug("Successfully saved user UI settings to disk.")
     except Exception as e:
-        print(f"[DEBUG CONFIG] [WARN] Impossible d'écrire {path} : {e}")
+        logging.warning(f"Could not write user UI settings file to {path}: {e}")

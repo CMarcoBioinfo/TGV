@@ -1,4 +1,5 @@
 import zipfile
+import logging
 from scripts.core.vcf_loader import list_vcfs
 
 def extract_trid_static_info(zip_path, vcf_filename):
@@ -74,18 +75,18 @@ def autodetect_trids(zip_path):
     # 1. On liste les VCFs
     vcfs = list_vcfs(zip_path)
     if not vcfs:
-        print("[ERROR] Aucun VCF trouvé dans le ZIP")
+        logging.error(f"No VCF files found inside the ZIP archive: {zip_path}")
         return [], {}, {}, {}
 
     first_vcf = vcfs[0]
-    print(f"[INFO] Lecture unique du VCF de référence : {first_vcf}")
+    logging.info(f"Reading reference VCF for dynamic autodetection: {first_vcf}")
 
     # 2. On extrait l'intégralité des informations en une seule passe de lecture
     static_info = extract_trid_static_info(zip_path, first_vcf)
 
     # 3. La liste des TRIDs correspond simplement aux clés triées du dictionnaire d'informations
     trids = sorted(static_info.keys())
-    print(f"[INFO] {len(trids)} TRIDs détectés")
+    logging.info(f"Successfully autodetected {len(trids)} genomic TRIDs in reference VCF.")
 
     trid_to_gene = {}
     diseases = {}
