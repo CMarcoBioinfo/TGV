@@ -315,10 +315,6 @@ def get_igv_js_version():
 # ---------------------------------------------------------------------------
 #  4. Lancement d'igv.js
 # ---------------------------------------------------------------------------
-
-# ---------------------------------------------------------------------------
-#  4. Lancement d'igv.js
-# ---------------------------------------------------------------------------
 def open_igv(genome_fasta_path=None, 
              spanning_zip_path=None, spanning_bam_file=None, spanning_bai_file=None, 
              mapped_zip_path=None, mapped_bam_file=None, mapped_bai_file=None, 
@@ -608,9 +604,13 @@ def open_igv(genome_fasta_path=None,
         clinical_header_html = f"""
         <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: white; padding: 20px 25px; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255, 255, 255, 0.15); padding-bottom: 15px; margin-bottom: 15px;">
-                <div>
-                    <h1 style="margin: 0; font-size: 1.5rem; font-weight: 700; color: #f8fafc; letter-spacing: -0.025em;">TGV - TRGT Global Viewer</h1>
-                    <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #94a3b8;">Visualisation IGV</p>
+                <!-- Bloc titre avec le cercle rose -->
+                <div style="display: flex; align-items: center; gap: 16px;">
+                    <div style="width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #e8457a 0%, #9e1f4f 100%); flex-shrink: 0;"></div>
+                    <div>
+                        <h1 style="margin: 0; font-size: 1.5rem; font-weight: 700; color: #f8fafc; letter-spacing: -0.025em;">TGV - TRGT Global Viewer</h1>
+                        <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #94a3b8;">Visualisation IGV</p>
+                    </div>
                 </div>
                 <div style="text-align: right;">
                     <div style="font-size: 1.25rem; font-weight: 700; color: #e8457a;">Patient : <span style="color: #e8457a;">{sample_name}</span></div>
@@ -660,9 +660,13 @@ def open_igv(genome_fasta_path=None,
     else:
         clinical_header_html = f"""
         <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: white; padding: 18px 25px; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-            <div>
-                <h1 style="margin: 0; font-size: 1.5rem; font-weight: 700; color: #f8fafc;">TGV - TRGT Global Viewer</h1>
-                <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #94a3b8;">Analyse de répétitions en tandem (TRGT)</p>
+            <!-- Bloc titre avec le cercle rose -->
+            <div style="display: flex; align-items: center; gap: 16px;">
+                <div style="width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #e8457a 0%, #9e1f4f 100%); flex-shrink: 0;"></div>
+                <div>
+                    <h1 style="margin: 0; font-size: 1.5rem; font-weight: 700; color: #f8fafc;">TGV - TRGT Global Viewer</h1>
+                    <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #94a3b8;">Visualisation IGV</p>
+                </div>
             </div>
             <div style="text-align: right;">
                 <div style="font-size: 1.2rem; font-weight: 700; color: #e8457a;">ID Patient : <span style="color: #e8457a;">{sample_name}</span></div>
