@@ -68,7 +68,7 @@ Pour visualiser un patient, inspecter ses alignements sur IGV et afficher ses pr
 * **Graphiques TRGT (Archives d'images SVG)** :
   * `{Patient}_trgt_motifs_allele.zip` : Profils de tailles des motifs d'allèles.
   * `{Patient}_trgt_motifs_waterfall.zip` : Profils de reads de type *waterfall* pour les motifs.
-  * `{Patient}_trgt_meth_allele.zip` : Profils de méthylation allèle-spécifique.
+  * `{Patient}_trgt_meth_allele.zip` : Profils de méthylation allèle-specifique.
   * `{Patient}_trgt_meth_waterfall.zip` : Profils de reads de type *waterfall* pour la méthylation.
 
 #### 3. Données de Run QC (Niveau Plaque — Rapport global d'enrichissement)
@@ -77,6 +77,16 @@ Pour afficher le rapport d'enrichissement global de run, l'utilisateur fournit l
 * Le résumé des échantillons : `sample_summary.csv`
 * La couverture par cible : `target_cov_by_sample.csv`
 * Les graphiques PNG correspondants (ex: `sample_coverage_boxplot-0.png`, `read_categories.png`). *Les miniatures de type `*_thumb.png` sont ignorées.* [3]
+
+---
+
+### ⚙️ Configuration & Personnalisation
+
+TGV est hautement configurable pour s'adapter aux besoins spécifiques de votre laboratoire de diagnostic grâce à trois fichiers de configuration au format YAML :
+
+* **`clinical_thresholds.yaml`** (`scripts/bio/`) : Fichier de référence clinique. Il définit, pour chaque maladie/locus (TRID), les plages de tailles de répétitions permettant de classer les allèles (Sain, Prémutation, Pathogène) ainsi que l'orientation du brin (Directe ou Reverse-Complement).
+* **`buttons_panel.yaml`** (`configs/`) : Permet de personnaliser dynamiquement les boutons de l'interface graphique. Vous pouvez y définir des panels (ex: "Ataxies", "Myopathies") et lister les TRIDs associés pour les cocher automatiquement d'un seul clic à l'écran.
+* **`motifs_data.yaml`** (`scripts/bio/`) : Base de données de référence interne contenant les informations de séquences et de motifs immuables pour chaque locus.
 
 ---
 
@@ -166,6 +176,16 @@ To display the global run enrichment report, the user provides the **`{id}-QC.zi
 * The sample summary: `sample_summary.csv`
 * The target coverage: `target_cov_by_sample.csv`
 * The corresponding PNG plots (e.g., `sample_coverage_boxplot-0.png`, `read_categories.png`). *Thumbnail images (`*_thumb.png`) are automatically ignored.* [3]
+
+---
+
+### ⚙️ Configuration & Customization
+
+TGV is highly configurable to meet your diagnostic laboratory's specific needs through three YAML configuration files:
+
+* **`clinical_thresholds.yaml`** (`scripts/bio/`): Clinical reference file. It defines, for each disease/locus (TRID), the repeat size ranges to classify alleles (Benign, Permutation, Pathogenic) and the motif strand orientation (Forward or Reverse-Complement).
+* **`buttons_panel.yaml`** (`configs/`): Allows customizing the GUI by dynamically creating selection buttons. You can define custom panels (e.g., "Ataxias", "Myopathies") and list the associated TRIDs to check them automatically in a single click on screen.
+* **`motifs_data.yaml`** (`scripts/bio/`): Internal database containing sequence motif and immutable information for each locus.
 
 ---
 
