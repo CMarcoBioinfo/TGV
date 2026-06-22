@@ -54,22 +54,24 @@ Destiné aux bio-informaticiens ou pour une utilisation sur serveur de calcul.
 
 ### 📂 Spécifications des Entrées (Inputs)
 
-Pour fonctionner, **TGV** s'attend à recevoir des structures de fichiers d'entrée standardisées et automatisées :
+Pour fonctionner de manière transparente et sans désarchivage préalable, **TGV** s'appuie sur une structure d'archives standardisée **au niveau du Run** (les fichiers d'échantillons individuels sont stockés à l'intérieur d'archives globales du run) :
 
-#### 1. Fichiers généraux (Sélection manuelle sur l'IHM)
-* **Archive de VCFs TRGT (`trgt_vcfs.zip`)** : L'archive ZIP contenant l'ensemble des fichiers `.trgt.vcf` du run (un fichier VCF par échantillon).
+#### 1. Fichiers généraux de l'analyse (Sélection manuelle sur l'IHM)
+* **Archive de VCFs TRGT (`{ID_RUN}-trgt_vcfs.zip`)** : L'archive ZIP contenant l'ensemble des fichiers `.trgt.vcf` du run (un fichier VCF par échantillon).
 * **Génome de référence (Optionnel)** : Le fichier de référence génomique au format `.fa` ou `.fasta` accompagné de son fichier d'index `.fai` (ex : `hg38.fa` et `hg38.fa.fai`).
 
-#### 2. Données Patient (Niveau Échantillon — Détectées automatiquement)
-Pour visualiser un patient, inspecter ses alignements sur IGV et afficher ses profils graphiques, TGV s'attend à trouver dans le même dossier que le fichier `.trgt.vcf` de l'échantillon sélectionné :
-* **Fichiers d'alignements (BAM)** :
-  * `{Patient}_spanning_BAM.zip` : Contient les alignements des reads de type *spanning*.
-  * `{Patient}_repeat_reads.zip` (ou `mapped_bam`) : Contient les alignements des reads de type *mapped*.
-* **Graphiques TRGT (Archives d'images SVG)** :
-  * `{Patient}_trgt_motifs_allele.zip` : Profils de tailles des motifs d'allèles.
-  * `{Patient}_trgt_motifs_waterfall.zip` : Profils de reads de type *waterfall* pour les motifs.
-  * `{Patient}_trgt_meth_allele.zip` : Profils de méthylation allèle-spécifique.
-  * `{Patient}_trgt_meth_waterfall.zip` : Profils de reads de type *waterfall* pour la méthylation.
+#### 2. Archives globales de Run détectées automatiquement (Sister ZIPs)
+TGV détecte automatiquement les archives associées présentes dans le même répertoire, sous réserve qu'elles partagent exactement le même préfixe de run (`{ID_RUN}-`) :
+* **Alignements (BAM)** :
+  * `{ID_RUN}-spanning_BAM.zip` : Contient les fichiers BAM/BAI de type *spanning* pour tous les patients du run.
+  * `{ID_RUN}-repeat_reads.zip` : Contient les fichiers BAM/BAI de type *mapped* pour tous les patients du run.
+* **Graphiques TRGT (SVG)** :
+  * `{ID_RUN}-trgt_motifs_allele.zip` : Archives des profils de tailles des motifs d'allèles de tous les patients.
+  * `{ID_RUN}-trgt_motifs_waterfall.zip` : Archives des profils de reads *waterfall* de tous les patients.
+  * `{ID_RUN}-trgt_meth_allele.zip` : Archives de méthylation allèle-spécifique de tous les patients.
+  * `{ID_RUN}-trgt_meth_waterfall.zip` : Archives de profils de reads *waterfall* de méthylation de tous les patients.
+
+*Fonctionnement interne : Lors de la sélection d'un patient et d'un locus, TGV ouvre l'archive globale du run correspondante en mémoire, y recherche le fichier spécifique du patient (par exemple `nom_patient.sorted.spanning.bam`), l'extrait de manière temporaire pour l'analyse, puis nettoie le disque à la fermeture [3].*
 
 #### 3. Données de Run QC (Niveau Plaque — Rapport global d'enrichissement)
 Pour afficher le rapport d'enrichissement global de run, l'utilisateur fournit l'archive d'analyse **`{id}-QC.zip`** contenant [3] :
@@ -130,13 +132,13 @@ Les fichiers de logs techniques sont sauvegardés automatiquement à côté de l
 
 The **TGV** tool adapting to your work environment, it can be launched in two different ways:
 
-### Option A: On Windows (Standalone executable)
+#### Option A: On Windows (Standalone executable)
 Aimed at clinicians and biologists on Windows workstations.
 1. Download the standalone executable **`TGV.exe`** from the *Releases* tab of this GitHub repository.
 2. Double-click the executable to launch the application. 
 *No Python installation or library setup is required.*
 
-### Option B: On Linux / macOS (Command-line usage)
+#### Option B: On Linux / macOS (Command-line usage)
 Aimed at bioinformaticians or server environment usage.
 
 1. Install the two required lightweight dependencies:
@@ -152,22 +154,24 @@ Aimed at bioinformaticians or server environment usage.
 
 ### 📂 Input Specifications
 
-TGV expects structured, automated input file architectures to operate:
+To operate transparently without prior manual extraction, **TGV** relies on a standardized, **Run-level archive structure** (individual sample files are stored inside global run-level ZIP archives):
 
 #### 1. General Files (Manual selection on the GUI)
-* **TRGT VCF Archive (`trgt_vcfs.zip`)**: The ZIP archive containing all the `.trgt.vcf` files for the run (one VCF file per sample).
+* **TRGT VCF Archive (`{ID_RUN}-trgt_vcfs.zip`)**: The primary ZIP archive containing all the `.trgt.vcf` files of the run (one VCF file per sample).
 * **Reference Genome (Optional)**: The reference genome file in `.fa` or `.fasta` format accompanied by its `.fai` index file (e.g., `hg38.fa` and `hg38.fa.fai`).
 
-#### 2. Patient Data (Sample-level — Automatically detected)
-To visualize a patient, inspect their alignments on IGV, and display their graphical profiles, TGV expects to find in the same directory as the `.trgt.vcf` file of the selected sample:
+#### 2. Automatically Detected Run Archives (Sister ZIPs)
+TGV automatically detects associated run archives present in the same directory, provided they share the exact same run prefix (`{ID_RUN}-`):
 * **Alignment Files (BAM)**:
-  * `{Patient}_spanning_BAM.zip`: Contains the alignments of *spanning* reads.
-  * `{Patient}_repeat_reads.zip` (or `mapped_bam`): Contains the alignments of *mapped* reads.
-* **TRGT Plots (SVG image archives)**:
-  * `{Patient}_trgt_motifs_allele.zip`: Motif size profiles for alleles.
-  * `{Patient}_trgt_motifs_waterfall.zip`: Motif read waterfall plots.
-  * `{Patient}_trgt_meth_allele.zip`: Allele-specific methylation profiles.
-  * `{Patient}_trgt_meth_waterfall.zip`: Methylation read waterfall plots.
+  * `{ID_RUN}-spanning_BAM.zip`: Contains the *spanning* BAM/BAI files for all patients in the run.
+  * `{ID_RUN}-repeat_reads.zip`: Contains the *mapped* BAM/BAI files for all patients in the run.
+* **TRGT Graphics (SVG)**:
+  * `{ID_RUN}-trgt_motifs_allele.zip`: Contains the motif allele size profiles for all patients in the run.
+  * `{ID_RUN}-trgt_motifs_waterfall.zip`: Contains the motif waterfall plots for all patients in the run.
+  * `{ID_RUN}-trgt_meth_allele.zip`: Contains the allele-specific methylation profiles for all patients in the run.
+  * `{ID_RUN}-trgt_meth_waterfall.zip`: Contains the methylation waterfall plots for all patients in the run.
+
+*Internal behavior: When a patient and a locus are selected, TGV opens the corresponding global run archive in-memory, searches for the patient's specific file (e.g., `patient_name.sorted.spanning.bam`), extracts it temporarily for the analysis, and cleans up the disk on exit [3].*
 
 #### 3. Run QC Data (Plate-level — Global Enrichment Report)
 To display the global run enrichment report, the user provides the **`{id}-QC.zip`** analysis archive containing [3]:
