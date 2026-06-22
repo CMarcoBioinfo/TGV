@@ -2,6 +2,7 @@ import os
 import tempfile
 import webbrowser
 import logging
+import PySimpleGUI as sg
 from pathlib import Path
 
 
@@ -9,10 +10,11 @@ def generate_html_table(headers, rows, sample_name):
     """Construit un tableau HTML complet, interactif et instantané (sans dépendances externes)."""
     logging.info(f"Generating export HTML table for patient '{sample_name}' with {len(rows)} selected rows.")
 
-    # Pré-génération du tableau
+    # Pré-génération du tableau (avec ajout d'une colonne Actions à la fin)
     thead_html = (
         "<tr><th class='col-checkbox'></th>"
         + "".join(f"<th>{h}</th>" for h in headers)
+        + "<th class='col-actions'>Actions</th>"
         + "</tr>"
     )
 
@@ -21,6 +23,7 @@ def generate_html_table(headers, rows, sample_name):
         row_html = "<tr>"
         row_html += "<td class='col-checkbox'><input type='checkbox' class='row-checkbox' checked></td>"
         row_html += "".join(f"<td>{r.get(h, '')}</td>" for h in headers)
+        row_html += "<td class='col-actions'><button class='btn-swap' onclick='swapRowAlleles(this)' title='Inverser Allèle 1 / Allèle 2'>⇅</button></td>"
         row_html += "</tr>"
         tbody_rows.append(row_html)
     tbody_html = "".join(tbody_rows)
@@ -179,6 +182,33 @@ def generate_html_table(headers, rows, sample_name):
     vertical-align: middle;
   }}
 
+  /* ── Actions (Swap button) ── */
+  .col-actions {{
+    width: 80px;
+    text-align: center;
+    padding: 8px;
+  }}
+  .btn-swap {{
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--accent2);
+    border-radius: 4px;
+    cursor: pointer;
+    padding: 3px 8px;
+    font-size: 12px;
+    font-family: var(--font-sans);
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+  }}
+  .btn-swap:hover {{
+    background: var(--accent-lt);
+    border-color: var(--accent);
+    color: var(--accent);
+  }}
+
   /* ── Actions Container & Buttons ── */
   .btn-container {{
     margin-top: 20px;
@@ -256,8 +286,8 @@ def generate_html_table(headers, rows, sample_name):
   }}
 
   @media print {{
-    .btn-container {{
-      display: none;
+    .btn-container, .col-actions, .btn-swap {{
+      display: none !important;
     }}
     body {{
       margin: 0;
@@ -332,8 +362,102 @@ def generate_html_table(headers, rows, sample_name):
     checkboxes.forEach(cb => cb.checked = checked);
   }}
 
+  function swapRowAlleles(button) {{
+    const row = button.closest('tr');
+    if (!row) return;
+
+    // Récupère l'ensemble des en-têtes du tableau pour mapper les colonnes séparées
+    const headers = Array.from(document.querySelectorAll('table th')).map(th => th.innerText.trim());
+    const cells = Array.from(row.querySelectorAll('td'));
+    const pairs = [];
+
+    // Détermine la correspondance d'en-tête opposée (ex: "Allele 1" -> "Allele 2")
+    function getOppositeHeader(name) {{
+      if (name.includes('Allele 1')) return name.replace('Allele 1', 'Allele 2');
+      if (name.includes('Allele1')) return name.replace('Allele1', 'Allele2');
+      if (name.includes('Allèle 1')) return name.replace('Allèle 1', 'Allèle 2');
+      if (name.includes('Allèle1')) return name.replace('Allèle1', 'Allèle2');
+      if (name.includes('A1')) return name.replace('A1', 'A2');
+      if (name.includes('a1')) return name.replace('a1', 'a2');
+      if (name.includes('1')) {{
+        const lastIndex = name.lastIndexOf('1');
+        return name.substring(0, lastIndex) + '2' + name.substring(lastIndex + 1);
+      }}
+      return null;
+    }}
+
+    // Recherche de toutes les paires de colonnes indépendantes à permuter
+    for (let i = 0; i < headers.length; i++) {{
+      const h1 = headers[i];
+      if (!h1) continue;
+
+      const target = getOppositeHeader(h1);
+      if (target) {{
+        const j = headers.findIndex(h => h === target);
+        if (j !== -1 && j !== i) {{
+          const alreadyAdded = pairs.some(p => p[0] === i || p[1] === i || p[0] === j || p[1] === j);
+          if (!alreadyAdded) {{
+            pairs.push([i, j]);
+          }}
+        }}
+      }}
+    }}
+
+    // 1. Permuter les colonnes indépendantes si elles existent
+    pairs.forEach(([i, j]) => {{
+      if (cells[i] && cells[j]) {{
+        const temp = cells[i].innerHTML;
+        cells[i].innerHTML = cells[j].innerHTML;
+        cells[j].innerHTML = temp;
+      }}
+    }});
+
+    // 2. Traiter chaque cellule de données pour inverser le contenu séparé par "/"
+    // On ignore l'index 0 (checkbox) et le dernier index (bouton d'action)
+    for (let i = 1; i < cells.length - 1; i++) {{
+      const cell = cells[i];
+
+      // Évite de ré-inverser une colonne qui vient d'être permutée en tant que paire globale
+      const isPairColumn = pairs.some(p => p[0] === i || p[1] === i);
+      if (isPairColumn) continue;
+
+      // Cas 1 : La cellule contient du texte brut simple
+      if (cell.children.length === 0) {{
+        const text = cell.textContent.trim();
+        if (text.includes('/')) {{
+          const parts = text.split('/');
+          if (parts.length === 2) {{
+            // Détection et conservation des espaces d'origine (ex: "12/15" ou "12 / 15")
+            const hasLeftSpace = parts[0].endsWith(' ');
+            const hasRightSpace = parts[1].startsWith(' ');
+            const separator = (hasLeftSpace ? ' ' : '') + '/' + (hasRightSpace ? ' ' : '');
+            
+            cell.textContent = parts[1].trim() + separator + parts[0].trim();
+          }}
+        }}
+      }} else {{
+        // Cas 2 : La cellule contient des éléments enfants (badges HTML, spans, etc.)
+        const nodes = Array.from(cell.childNodes);
+        // On cherche le nœud de texte correspondant au séparateur "/"
+        const slashIndex = nodes.findIndex(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim() === '/');
+        
+        if (slashIndex !== -1) {{
+          const leftNodes = nodes.slice(0, slashIndex);
+          const rightNodes = nodes.slice(slashIndex + 1);
+          
+          cell.innerHTML = '';
+          // On ré-injecte l'allèle 2 à gauche, puis le séparateur, puis l'allèle 1 à droite
+          rightNodes.forEach(n => cell.appendChild(n));
+          cell.appendChild(nodes[slashIndex]);
+          leftNodes.forEach(n => cell.appendChild(n));
+        }}
+      }}
+    }}
+  }}
+
   async function copySelectedRows() {{
-    const headers = Array.from(document.querySelectorAll('table th')).slice(1).map(th => th.innerText);
+    // Utilisation de .slice(1, -1) pour exclure la première colonne (checkbox) et la dernière colonne (Actions)
+    const headers = Array.from(document.querySelectorAll('table th')).slice(1, -1).map(th => th.innerText);
     const rows = document.querySelectorAll('table tbody tr');
     let tsvContent = headers.join('\\t') + '\\n';
     let hasSelected = false;
@@ -342,7 +466,7 @@ def generate_html_table(headers, rows, sample_name):
       const checkbox = row.querySelector('.row-checkbox');
       if (checkbox && checkbox.checked) {{
         hasSelected = true;
-        const cells = Array.from(row.querySelectorAll('td')).slice(1).map(td => td.innerText.trim());
+        const cells = Array.from(row.querySelectorAll('td')).slice(1, -1).map(td => td.innerText.trim());
         tsvContent += cells.join('\\t') + '\\n';
       }}
     }});
@@ -393,5 +517,4 @@ def save_and_open_html(html_content):
         webbrowser.open(uri)
     except Exception as e:
         logging.error(f"Failed to generate or open temporary HTML table export: {e}", exc_info=True)
-        import PySimpleGUI as sg
         sg.popup_error(f"Impossible de générer ou d'ouvrir le rapport d'exportation temporaire :\n{e}")
