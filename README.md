@@ -225,6 +225,3 @@ L'exécutable `main.exe` sera généré dans le répertoire `dist/`. / The stand
 Pour plus de détails, veuillez vous référer aux termes de la licence Creative Commons en ligne. / For more details, please refer to the Creative Commons license terms online.
 
 </details>
-Pour plus de détails, veuillez vous référer aux termes de la licence Creative Commons en ligne. / For more details, please refer to the Creative Commons license terms online.
-
-</details>
