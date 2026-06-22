@@ -68,7 +68,7 @@ Pour visualiser un patient, inspecter ses alignements sur IGV et afficher ses pr
 * **Graphiques TRGT (Archives d'images SVG)** :
   * `{Patient}_trgt_motifs_allele.zip` : Profils de tailles des motifs d'allèles.
   * `{Patient}_trgt_motifs_waterfall.zip` : Profils de reads de type *waterfall* pour les motifs.
-  * `{Patient}_trgt_meth_allele.zip` : Profils de méthylation allèle-specifique.
+  * `{Patient}_trgt_meth_allele.zip` : Profils de méthylation allèle-spécifique.
   * `{Patient}_trgt_meth_waterfall.zip` : Profils de reads de type *waterfall* pour la méthylation.
 
 #### 3. Données de Run QC (Niveau Plaque — Rapport global d'enrichissement)
@@ -82,11 +82,10 @@ Pour afficher le rapport d'enrichissement global de run, l'utilisateur fournit l
 
 ### ⚙️ Configuration & Personnalisation
 
-TGV est hautement configurable pour s'adapter aux besoins spécifiques de votre laboratoire de diagnostic grâce à trois fichiers de configuration au format YAML :
+TGV est hautement configurable pour s'adapter aux besoins spécifiques de votre laboratoire de diagnostic grâce à deux fichiers de configuration au format YAML situés dans le répertoire **`configs/`** :
 
-* **`clinical_thresholds.yaml`** (`scripts/bio/`) : Fichier de référence clinique. Il définit, pour chaque maladie/locus (TRID), les plages de tailles de répétitions permettant de classer les allèles (Sain, Prémutation, Pathogène) ainsi que l'orientation du brin (Directe ou Reverse-Complement).
+* **`clinical_thresholds.yaml`** (`configs/`) : Fichier de référence clinique. Il définit, pour chaque maladie/locus (TRID), les plages de tailles de répétitions permettant de classer les allèles (Sain, Prémutation, Pathogène) ainsi que l'orientation du brin (Directe ou Reverse-Complement).
 * **`buttons_panel.yaml`** (`configs/`) : Permet de personnaliser dynamiquement les boutons de l'interface graphique. Vous pouvez y définir des panels (ex: "Ataxies", "Myopathies") et lister les TRIDs associés pour les cocher automatiquement d'un seul clic à l'écran.
-* **`motifs_data.yaml`** (`scripts/bio/`) : Base de données de référence interne contenant les informations de séquences et de motifs immuables pour chaque locus.
 
 ---
 
@@ -131,13 +130,13 @@ Les fichiers de logs techniques sont sauvegardés automatiquement à côté de l
 
 The **TGV** tool adapting to your work environment, it can be launched in two different ways:
 
-#### Option A: On Windows (Standalone executable)
+### Option A: On Windows (Standalone executable)
 Aimed at clinicians and biologists on Windows workstations.
 1. Download the standalone executable **`TGV.exe`** from the *Releases* tab of this GitHub repository.
 2. Double-click the executable to launch the application. 
 *No Python installation or library setup is required.*
 
-#### Option B: On Linux / macOS (Command-line usage)
+### Option B: On Linux / macOS (Command-line usage)
 Aimed at bioinformaticians or server environment usage.
 
 1. Install the two required lightweight dependencies:
@@ -181,11 +180,10 @@ To display the global run enrichment report, the user provides the **`{id}-QC.zi
 
 ### ⚙️ Configuration & Customization
 
-TGV is highly configurable to meet your diagnostic laboratory's specific needs through three YAML configuration files:
+TGV is highly configurable to meet your diagnostic laboratory's specific needs through two YAML configuration files located in the **`configs/`** directory:
 
-* **`clinical_thresholds.yaml`** (`scripts/bio/`): Clinical reference file. It defines, for each disease/locus (TRID), the repeat size ranges to classify alleles (Benign, Permutation, Pathogenic) and the motif strand orientation (Forward or Reverse-Complement).
+* **`clinical_thresholds.yaml`** (`configs/`): Clinical reference file. It defines, for each disease/locus (TRID), the repeat size ranges to classify alleles (Benign, Permutation, Pathogenic) and the motif strand orientation (Forward or Reverse-Complement).
 * **`buttons_panel.yaml`** (`configs/`): Allows customizing the GUI by dynamically creating selection buttons. You can define custom panels (e.g., "Ataxias", "Myopathies") and list the associated TRIDs to check them automatically in a single click on screen.
-* **`motifs_data.yaml`** (`scripts/bio/`): Internal database containing sequence motif and immutable information for each locus.
 
 ---
 
@@ -209,7 +207,7 @@ The project uses a GitHub Actions workflow to compile the Windows executable. Th
 ### Pour compiler manuellement sous Windows / To compile manually on Windows :
 ```bash
 pip install pyinstaller PySimpleGUI-4-foss pyyaml
-pyinstaller --onefile --windowed main.py --hidden-import yaml --add-data "scripts/bio/motifs_data.yaml;scripts/bio" --add-data "scripts/bio/clinical_thresholds.yaml;scripts/bio" --add-data "assets;assets"
+pyinstaller --onefile --windowed main.py --hidden-import yaml --add-data "scripts/bio/motifs_data.yaml;scripts/bio" --add-data "configs;configs" --add-data "assets;assets"
 ```
 L'exécutable `main.exe` sera généré dans le répertoire `dist/`. / The standalone `main.exe` executable will be generated in the `dist/` directory.
 
@@ -224,6 +222,9 @@ L'exécutable `main.exe` sera généré dans le répertoire `dist/`. / The stand
 * **Auteur principal / Main Author** : Corentin Marco (CHU de Nîmes)
 * **Licence / License** : Ce projet est sous licence libre **Creative Commons Attribution - Pas d'Utilisation Commerciale 4.0 International** (CC BY-NC 4.0).
 
+Pour plus de détails, veuillez vous référer aux termes de la licence Creative Commons en ligne. / For more details, please refer to the Creative Commons license terms online.
+
+</details>
 Pour plus de détails, veuillez vous référer aux termes de la licence Creative Commons en ligne. / For more details, please refer to the Creative Commons license terms online.
 
 </details>
