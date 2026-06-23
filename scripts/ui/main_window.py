@@ -411,6 +411,9 @@ def run_main_window():
                 # Rétablir la liste complète
                 window["-SAMPLE-"].update(values=all_samples, value=sample)
 
+               #Retire le focus 
+                window["-SAMPLE-"].set_focus()
+
 
         # ---------------------------------------------------------
         # Sélection patient
@@ -475,6 +478,9 @@ def run_main_window():
 
                 # Effacer la recherche
                 window["-SEARCH-TRID-"].update("")
+
+               #  Retire le focus
+                window["-TRID-COMBO-"].set_focus()
 
         # ---------------------------------------------------------
         # Ajouter TRID

@@ -444,8 +444,9 @@ def open_igv(genome_fasta_path=None,
                 "displayMode": "EXPANDED",
                 "alignmentRowHeight": 14,
                 "autoHeight": True,
-                "maxHeight": 500,
-                "samplingDepth": 150,
+                "maxHeight": 600,
+                "samplingDepth": 1000,
+                "showSoftClips": True,
                 "sort": {
                     "option": "INSERT_SIZE",
                     "direction": "ASC"
@@ -475,8 +476,9 @@ def open_igv(genome_fasta_path=None,
                 "displayMode": "EXPANDED",
                 "alignmentRowHeight": 14,
                 "autoHeight": True,
-                "maxHeight": 500,
-                "samplingDepth": 150,
+                "maxHeight": 600,
+                "samplingDepth": 1000,
+                "showSoftClips": True,
                 "sort": {
                     "option": "INSERT_SIZE",
                     "direction": "ASC"
