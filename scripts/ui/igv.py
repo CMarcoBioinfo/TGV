@@ -409,7 +409,7 @@ def open_igv(genome_fasta_path=None,
         return
 
     tracks = []
-    
+
     # -----------------------------------------------------------------------
     #  A. Piste des Gènes (Uniquement en ligne. Si hors-ligne, ignorée)
     # -----------------------------------------------------------------------
@@ -447,6 +447,8 @@ def open_igv(genome_fasta_path=None,
                 "maxHeight": 600,
                 "samplingDepth": 1000,
                 "showSoftClips": True,
+                "showDeletionText": True,
+                "showInsertionText": True,
                 "sort": {
                     "option": "INSERT_SIZE",
                     "direction": "ASC"
@@ -479,6 +481,8 @@ def open_igv(genome_fasta_path=None,
                 "maxHeight": 600,
                 "samplingDepth": 1000,
                 "showSoftClips": True,
+                "showDeletionText": True,
+                "showInsertionText": True,
                 "sort": {
                     "option": "INSERT_SIZE",
                     "direction": "ASC"
