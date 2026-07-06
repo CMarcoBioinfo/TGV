@@ -85,7 +85,7 @@ def open_svg(zip_path, inner_zip, svg_file, sample_name):
         threading.Thread(target=httpd.serve_forever, daemon=True).start()
 
         # --- Ouvrir dans le navigateur par défaut ---
-        url = f"http://127.0.0.1:{port}/{svg_file}"
+        url = f"http://127.0.0.1:{port}/{sample_name}/{svg_file}"
         logging.info(f"Launching web browser for SVG visualization at: {url}")
 
         # URL unique → nouvel onglet garanti
