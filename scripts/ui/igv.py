@@ -33,7 +33,7 @@ def find_spanning_bam(zip_path, sample_name):
     sample_lower = sample_name.lower()
 
     for n in names:
-        if n.endswith(".sorted.spanning.bam") and sample_lower in n.lower():
+        if n.endswith(".bam") and sample_lower in n.lower():
             bai = n + ".bai"
             if bai in names:
                 return zip_path, n, bai
@@ -54,7 +54,7 @@ def find_mapped_bam(zip_path, sample_name):
     sample_lower = sample_name.lower()
 
     for n in names:
-        if n.endswith(".pbmm2.repeats.bam") and sample_lower in n.lower():
+        if n.endswith(".bam") and sample_lower in n.lower():
             bai = n + ".bai"
             if bai in names:
                 return zip_path, n, bai

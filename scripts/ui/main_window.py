@@ -646,7 +646,7 @@ def run_main_window():
             logging.info(f"Analysis completed. Successfully processed {len(results)}/{len(selected_trids)} loci.")
             logging.info(f"Opening results visualization window for patient: '{sample_name}'")
             show_results_window(
-                sample_name=sample_name.replace(".trgt.vcf", ""),
+                sample_name=sample_name.split(".trgt")[0],
                 results=results,
                 label_priority=analysis_input.label_priority,
                 paths=analysis_input.paths,
