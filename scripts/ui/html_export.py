@@ -459,7 +459,7 @@ def generate_html_table(headers, rows, sample_name):
 <footer class="footer">
   <div class="footer-left">
     <div class="footer-dot"></div>
-    <span>PacBio TRGT · {sample_name}</span>
+    <span>TRGT Global Viewer · {sample_name}</span>
   </div>
 </footer>
 
