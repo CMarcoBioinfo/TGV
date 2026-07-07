@@ -1,16 +1,35 @@
-import os
 import tempfile
+import os
 import webbrowser
 import logging
 import PySimpleGUI as sg
 from pathlib import Path
 
 
+def is_low_coverage(r_dict):
+    """
+    Détermine si un locus présente une couverture faible en analysant 
+    uniquement la présence du symbole d'attention (⚠️) déjà injecté dans les données.
+    """
+    # Recherche simple et rapide du symbole d'attention dans tous les champs textuels de la ligne
+    for key, val in r_dict.items():
+        if key in ["Result_obj", "Details_obj"]:
+            continue
+        val_str = str(val)
+        if "⚠️" in val_str or "\u26a0" in val_str:
+            return True
+    return False
+
+
 def generate_html_table(headers, rows, sample_name):
-    """Construit un tableau HTML complet, interactif et instantané (sans dépendances externes)."""
+    """Construit un tableau HTML interactif."""
     logging.info(f"Generating export HTML table for patient '{sample_name}' with {len(rows)} selected rows.")
 
-    # Pré-génération du tableau (avec ajout d'une colonne Actions à la fin)
+    # Ajout systématique de la colonne Commentaires à la fin des en-têtes
+    headers = list(headers)
+    if "Commentaires" not in headers:
+        headers.append("Commentaires")
+
     thead_html = (
         "<tr><th class='col-checkbox'></th>"
         + "".join(f"<th>{h}</th>" for h in headers)
@@ -19,16 +38,57 @@ def generate_html_table(headers, rows, sample_name):
     )
 
     tbody_rows = []
-    for r in rows:
+    for r_dict in rows:
         row_html = "<tr>"
         row_html += "<td class='col-checkbox'><input type='checkbox' class='row-checkbox' checked></td>"
-        row_html += "".join(f"<td>{r.get(h, '')}</td>" for h in headers)
+        
+        r_obj = r_dict.get("Result_obj")
+
+        # Détection de la couverture faible basée uniquement sur la présence du pictogramme attention déjà affiché
+        is_low = is_low_coverage(r_dict)
+        logging.debug(f"[EXPORT DIAGNOSTIC] Locus: {r_dict.get('Locus')} | Profondeur brute: {r_dict.get('Profondeur')} | Détection couverture faible: {is_low}")
+
+        # Détection des modifications manuelles de la classification
+        is_classif_modified = False
+        if r_obj:
+            if getattr(r_obj, "classification1_bio", None) or getattr(r_obj, "classification2_bio", None):
+                is_classif_modified = True
+        if r_dict.get("Classification") != r_dict.get("Classification_auto"):
+            is_classif_modified = True
+
+        # Détection des modifications manuelles du génotype
+        is_genotype_modified = False
+        if r_obj:
+            if getattr(r_obj, "genotype1_bio", None) is not None or getattr(r_obj, "genotype2_bio", None) is not None:
+                is_genotype_modified = True
+        gt_current = r_dict.get("Génotype") or r_dict.get("Genotype", "")
+        if gt_current != r_dict.get("Genotype_auto"):
+            is_genotype_modified = True
+
+        for h in headers:
+            if h == "Commentaires":
+                # Génération automatique du commentaire si couverture faible
+                comment_val = "Couverture faible" if is_low else ""
+                row_html += f"<td><span contenteditable='true' class='comment-input' data-placeholder='Ajouter un commentaire...'>{comment_val}</span></td>"
+            else:
+                val = r_dict.get(h, '')
+                
+                # Assignation des classes CSS pour l'indicateur visuel de modification
+                classes = []
+                if h == "Classification" and is_classif_modified:
+                    classes.append("modified-cell")
+                elif h in ("Génotype", "Genotype") and is_genotype_modified:
+                    classes.append("modified-cell")
+                
+                class_attr = f" class='{' '.join(classes)}'" if classes else ""
+                row_html += f"<td{class_attr}>{val}</td>"
+
         row_html += "<td class='col-actions'><button class='btn-swap' onclick='swapRowAlleles(this)' title='Inverser Allèle 1 / Allèle 2'>⇅</button></td>"
         row_html += "</tr>"
         tbody_rows.append(row_html)
     tbody_html = "".join(tbody_rows)
 
-    # Document HTML avec polices système locales pour une rapidité maximale
+    # Document HTML complet
     html = f"""<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -49,7 +109,6 @@ def generate_html_table(headers, rows, sample_name):
     --text-dim:  #5a4050;
     --success:   #2a7a4a;
     
-    /* Utilisation de polices système locales très performantes */
     --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     --font-mono: SFMono-Regular, Consolas, "Liberation Mono", Menlo, Monaco, Courier, monospace;
   }}
@@ -167,6 +226,51 @@ def generate_html_table(headers, rows, sample_name):
     font-weight: 500;
     font-family: var(--font-sans);
     font-size: 12.5px;
+  }}
+
+  /* ── Cellules Modifiées (Indicateur visuel uniquement) ── */
+  td.modified-cell {{
+    position: relative;
+    background-color: var(--accent-lt) !important;
+    border-bottom: 1.5px dashed var(--accent) !important;
+  }}
+  td.modified-cell::after {{
+    content: " ✎";
+    color: var(--accent);
+    font-weight: bold;
+    font-size: 11px;
+    font-family: var(--font-sans);
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    pointer-events: none;
+  }}
+
+  /* ── Zone de Commentaire Dynamique ── */
+  .comment-input {{
+    display: block;
+    width: 100%;
+    min-width: 220px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-family: var(--font-sans);
+    font-size: 12px;
+    background: var(--surface);
+    outline: none;
+    transition: border-color 0.15s, background-color 0.15s;
+    white-space: normal;
+    word-break: break-word;
+  }}
+  .comment-input:focus {{
+    border-color: var(--accent);
+    background: #fff;
+  }}
+  .comment-input:empty::before {{
+    content: attr(data-placeholder);
+    color: var(--muted);
+    font-style: italic;
   }}
 
   /* ── Checkboxes ── */
@@ -301,6 +405,9 @@ def generate_html_table(headers, rows, sample_name):
       padding: 8px;
       border: 1px solid var(--border);
     }}
+    td.modified-cell {{
+      background-color: transparent !important;
+    }}
   }}
 </style>
 </head>
@@ -366,12 +473,10 @@ def generate_html_table(headers, rows, sample_name):
     const row = button.closest('tr');
     if (!row) return;
 
-    // Récupère l'ensemble des en-têtes du tableau pour mapper les colonnes séparées
     const headers = Array.from(document.querySelectorAll('table th')).map(th => th.innerText.trim());
     const cells = Array.from(row.querySelectorAll('td'));
     const pairs = [];
 
-    // Détermine la correspondance d'en-tête opposée (ex: "Allele 1" -> "Allele 2")
     function getOppositeHeader(name) {{
       if (name.includes('Allele 1')) return name.replace('Allele 1', 'Allele 2');
       if (name.includes('Allele1')) return name.replace('Allele1', 'Allele2');
@@ -386,7 +491,6 @@ def generate_html_table(headers, rows, sample_name):
       return null;
     }}
 
-    // Recherche de toutes les paires de colonnes indépendantes à permuter
     for (let i = 0; i < headers.length; i++) {{
       const h1 = headers[i];
       if (!h1) continue;
@@ -403,7 +507,6 @@ def generate_html_table(headers, rows, sample_name):
       }}
     }}
 
-    // 1. Permuter les colonnes indépendantes si elles existent
     pairs.forEach(([i, j]) => {{
       if (cells[i] && cells[j]) {{
         const temp = cells[i].innerHTML;
@@ -412,22 +515,17 @@ def generate_html_table(headers, rows, sample_name):
       }}
     }});
 
-    // 2. Traiter chaque cellule de données pour inverser le contenu séparé par "/"
-    // On ignore l'index 0 (checkbox) et le dernier index (bouton d'action)
     for (let i = 1; i < cells.length - 1; i++) {{
       const cell = cells[i];
 
-      // Évite de ré-inverser une colonne qui vient d'être permutée en tant que paire globale
       const isPairColumn = pairs.some(p => p[0] === i || p[1] === i);
       if (isPairColumn) continue;
 
-      // Cas 1 : La cellule contient du texte brut simple
       if (cell.children.length === 0) {{
         const text = cell.textContent.trim();
         if (text.includes('/')) {{
           const parts = text.split('/');
           if (parts.length === 2) {{
-            // Détection et conservation des espaces d'origine (ex: "12/15" ou "12 / 15")
             const hasLeftSpace = parts[0].endsWith(' ');
             const hasRightSpace = parts[1].startsWith(' ');
             const separator = (hasLeftSpace ? ' ' : '') + '/' + (hasRightSpace ? ' ' : '');
@@ -436,9 +534,7 @@ def generate_html_table(headers, rows, sample_name):
           }}
         }}
       }} else {{
-        // Cas 2 : La cellule contient des éléments enfants (badges HTML, spans, etc.)
         const nodes = Array.from(cell.childNodes);
-        // On cherche le nœud de texte correspondant au séparateur "/"
         const slashIndex = nodes.findIndex(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim() === '/');
         
         if (slashIndex !== -1) {{
@@ -446,7 +542,6 @@ def generate_html_table(headers, rows, sample_name):
           const rightNodes = nodes.slice(slashIndex + 1);
           
           cell.innerHTML = '';
-          // On ré-injecte l'allèle 2 à gauche, puis le séparateur, puis l'allèle 1 à droite
           rightNodes.forEach(n => cell.appendChild(n));
           cell.appendChild(nodes[slashIndex]);
           leftNodes.forEach(n => cell.appendChild(n));
@@ -456,7 +551,6 @@ def generate_html_table(headers, rows, sample_name):
   }}
 
   async function copySelectedRows() {{
-    // Utilisation de .slice(1, -1) pour exclure la première colonne (checkbox) et la dernière colonne (Actions)
     const headers = Array.from(document.querySelectorAll('table th')).slice(1, -1).map(th => th.innerText);
     const rows = document.querySelectorAll('table tbody tr');
     let tsvContent = headers.join('\\t') + '\\n';
@@ -466,7 +560,20 @@ def generate_html_table(headers, rows, sample_name):
       const checkbox = row.querySelector('.row-checkbox');
       if (checkbox && checkbox.checked) {{
         hasSelected = true;
-        const cells = Array.from(row.querySelectorAll('td')).slice(1, -1).map(td => td.innerText.trim());
+        const cells = Array.from(row.querySelectorAll('td')).slice(1, -1).map(td => {{
+          const tempTd = td.cloneNode(true);
+          
+          // Supprime la classe modified-cell pour s'assurer que le crayon "✎" (via ::after) n'est pas copié
+          tempTd.classList.remove('modified-cell');
+          
+          const commentInput = tempTd.querySelector('.comment-input');
+          let textVal = commentInput ? commentInput.innerText : tempTd.innerText;
+          
+          // Nettoyage Unicode robuste : supprime le panneau d'attention \u26A0 et le sélecteur d'emoji \uFE0F
+          textVal = textVal.replace(/[\\u26A0\\uFE0F]/g, '');
+          
+          return textVal.trim();
+        }});
         tsvContent += cells.join('\\t') + '\\n';
       }}
     }});
@@ -511,7 +618,6 @@ def save_and_open_html(html_content):
             f.write(html_content)
         logging.debug(f"Temporary export file successfully written at: {tmp_path}")
 
-        # Path().as_uri() s'occupe de mettre le bon nombre de slashes selon l'OS (Windows vs Unix)
         uri = Path(tmp_path).as_uri()
         logging.info(f"Opening webbrowser for HTML table export at: {uri}")
         webbrowser.open(uri)

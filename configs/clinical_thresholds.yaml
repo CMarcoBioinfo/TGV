@@ -134,13 +134,32 @@
 #
 # ===================================================================
 
+#   label_priority :
+#       → Ordre de priorité numérique associé aux statuts cliniques.
+#         Permet de hiérarchiser, trier ou filtrer les résultats selon leur
+#         degré de gravité (de 0 pour "normal" à 6 pour "pathogenic_complete").
+#
+# ===================================================================
+
 label_priority:
     "normal" : 0
     "ambiguous" : 1
     "intermediate": 2
-    "pathogenic_incomplete": 3
-    "pathogenic": 4
-    "pathogenic_complete": 5
+    "premutation": 3
+    "pathogenic_incomplete": 4
+    "pathogenic": 5
+    "pathogenic_complete": 6
+
+
+# ===================================================================
+
+#   low_depth_threshold :
+#       → Seuil de profondeur (profondeur de lecture / DP) minimal 
+#         en dessous duquel le locus est signalé comme "Couverture faible. Peut etre vide or None
+#
+# ===================================================================
+
+low_depth_threshold: 50
 
 # ===================================================================
 

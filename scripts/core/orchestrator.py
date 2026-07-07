@@ -171,8 +171,8 @@ def process_clinical(analysis_input):
                 allele.trgt_groups[group_id] = data
 
                 # Score clinique
-                score = label_priority[clinical_label]
-
+                score = label_priority.get(clinical_label)
+                
                 # Total repeats clinique
                 if data.total_main_count_with is not None:
                     total_repeats = data.total_main_count_with
@@ -217,10 +217,22 @@ def process_clinical(analysis_input):
     return None
 
 
-def process_display(result, clinical_cfg):
+def process_display(result, clinical_cfg, low_depth_threshold):
     # Si déjà calculé → ne rien faire
     if result.display_row is not None:
         return
+
+    valid_threshold = None  # Default is None (no warning marker displayed)
+
+    if low_depth_threshold is not None:
+        try:
+            valid_threshold = int(low_depth_threshold)
+        except (ValueError, TypeError) as e:
+            logging.warning(
+                f"The configuration parameter 'low_depth_threshold' ('{low_depth_threshold}') "
+                f"is not a valid integer ({e}). Low coverage visual warning markers are disabled."
+            )
+            valid_threshold = None
 
     pathogenic = None
     if clinical_cfg:
@@ -242,10 +254,11 @@ def process_display(result, clinical_cfg):
     depth2 = int(result.depth2_raw)
     result.display_export.depth1 = f"{depth1}"
     result.display_export.depth2 = f"{depth2}"
-    if (int(result.depth1_raw) <50):
-        depth1 = f"\U000026A0 {depth1}"
-    if (int(result.depth2_raw) <50):
-        depth2 = f"\U000026A0 {depth2}"
+    if valid_threshold is not None:
+        if (int(result.depth1_raw) < low_depth_threshold):
+            depth1 = f"\U000026A0 {depth1}"
+        if (int(result.depth2_raw) < low_depth_threshold):
+            depth2 = f"\U000026A0 {depth2}"
     result.display_row.depth = f"{depth1} / {depth2}"
     result.display_details.depth = f"{depth1} / {depth2}"
     result.display_html.depth = f"{depth1} / {depth2}"

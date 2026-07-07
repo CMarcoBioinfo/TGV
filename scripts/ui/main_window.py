@@ -1,5 +1,6 @@
 import PySimpleGUI as sg
 import os
+import sys
 import yaml
 import re
 import logging
@@ -89,6 +90,52 @@ def get_trids_with_clinical(window):
 
 
 # ---------------------------------------------------------
+# Label priority
+# ---------------------------------------------------------
+def ask_priority(declared_label, menu_text):
+    layout = [
+        [sg.Text(
+            f"Le label clinique '{declared_label}' n'existe pas dans label_priority.\n\n"
+            f"{menu_text}\n"
+            f"Où souhaitez-vous insérer '{declared_label}' ?\n"
+            f"Entrez une priorité (entier) :\n"
+            f"- Si vous entrez 2 → le label sera inséré à la position 2\n"
+            f"- Les priorités >= 2 seront décalées automatiquement\n\n"
+            f"(Correction TEMPORAIRE, le YAML n'est pas modifié.)"
+        )],
+        [sg.Input(key='-PRIO-', focus=True)],
+        [sg.Button("Valider", bind_return_key=True)]  
+    ]
+
+    win = sg.Window(
+        "Insertion d'un label clinique",
+        layout,
+        modal=True,
+        keep_on_top=True,
+        disable_close=True
+    )
+
+    while True:
+        event, values = win.read()
+
+        if event == "Valider":
+            user_choice = values['-PRIO-'].strip()
+
+            if user_choice == "":
+                sg.popup_error("Vous devez entrer une priorité numérique.", keep_on_top=True)
+                continue
+
+            try:
+                insert_pos = int(user_choice)
+                win.close()
+                return insert_pos
+            except ValueError:
+                sg.popup_error("La priorité doit être un entier.", keep_on_top=True)
+                continue
+
+
+
+# ---------------------------------------------------------
 # FENÊTRE PRINCIPALE
 # ---------------------------------------------------------
 def run_main_window():
@@ -164,7 +211,14 @@ def run_main_window():
     ])
 
     # Modification du titre officiel de la fenêtre
-    window = sg.Window("TGV - TRGT Global Viewer", layout)
+    window = sg.Window("TGV - TRGT Global Viewer", layout, finalize=True)
+
+    try:
+        import sys
+        window.TKroot.protocol("WM_DELETE_WINDOW", lambda: sys.exit())
+    except Exception as e:
+        logging.warning(f"Failed to bind main window protocol: {e}")
+
 
     window.metadata = {
         "all_samples": [],
@@ -188,6 +242,7 @@ def run_main_window():
 
         if event == sg.WINDOW_CLOSED:
             logging.info("Closing main window interface")
+
             break
 
         if event == "-FASTA-":
@@ -321,6 +376,8 @@ def run_main_window():
             thresholds_data = load_clinical_thresholds()
             label_priority = thresholds_data.get("label_priority", {})
 
+            low_depth_threshold = thresholds_data.get("low_depth_threshold", None)
+
             if not label_priority:
                 sg.popup_error(
                     "Configuration clinique incomplète",
@@ -328,6 +385,26 @@ def run_main_window():
                 )
                 return
 
+            # ---------------------------------------------------------
+            # Protection : détecter les doublons de priorité
+            # ---------------------------------------------------------
+            prio_to_labels = {}
+            for lbl, prio in label_priority.items():
+                prio_to_labels.setdefault(prio, []).append(lbl)
+
+            duplicates = {prio: labs for prio, labs in prio_to_labels.items() if len(labs) > 1}
+
+            if duplicates:
+                msg = "Le fichier clinical_thresholds.yaml contient des priorités dupliquées :\n\n"
+                for prio, labs in duplicates.items():
+                    msg += f"Priorité {prio} : {', '.join(labs)}\n"
+
+                msg += "\nChaque label doit avoir une priorité unique.\nCorrigez le YAML puis relancez l'analyse."
+
+                sg.popup_error(msg, keep_on_top=True)
+                return
+
+            
             logging.info(f"Initializing {len(trids)} genomic loci structures...")
 
             # ---------------------------------------------------------
@@ -351,9 +428,45 @@ def run_main_window():
                 if trid_yaml_block:
                     t.clinical = build_clinical_config(trid_id, thresholds_data)
 
-                    # --- Orientation RC : reverse-complement des motifs TRGT ---
+                    # --- Protection : labels déclarés dans les groupes cliniques ---
+                    if t.clinical:
+                        for group_id, group in t.clinical.groups.items():
+
+                            declared_labels = list(group.thresholds.keys())
+                            for rule in group.structure_rules:
+                                declared_labels.append(rule["conditions"]["classification"])
+
+                            for declared_label in declared_labels:
+
+                                if declared_label not in label_priority:
+
+                                    priorities_sorted = sorted(label_priority.items(), key=lambda x: x[1])
+
+                                    menu_text = "Priorités existantes :\n\n"
+                                    for lbl, prio in priorities_sorted:
+                                        menu_text += f"  {prio} : {lbl}\n"
+
+                                    # --- Popup SANS Cancel ---
+                                    insert_pos = ask_priority(declared_label, menu_text)
+
+                                    # --- Recalcul automatique ---
+                                    new_priority_map = {}
+                                    for lbl, prio in priorities_sorted:
+                                        new_priority_map[lbl] = prio + 1 if prio >= insert_pos else prio
+
+                                    new_priority_map[declared_label] = insert_pos
+
+                                    label_priority = dict(sorted(new_priority_map.items(), key=lambda x: x[1]))
+
+                                    logging.warning(
+                                        f"Clinical label '{declared_label}' inserted at priority {insert_pos}. "
+                                        f"Priority table successfully updated."
+                                    )
+
+                    # --- Orientation RC ---
                     if t.clinical.orientation.lower() == "rc":
                         t.motifs_rc = [reverse_complement(m) for m in t.motifs]
+
 
                 run.trids[trid_id] = t
 
@@ -637,7 +750,7 @@ def run_main_window():
                 clinical_cfg = analysis_input.trids[trid_id].clinical
 
                 # Construit display_row / display_details / display_export / display_html
-                process_display(sample.result, clinical_cfg)
+                process_display(sample.result, clinical_cfg, low_depth_threshold)
 
                 # On stocke l'objet Result complet
                 results.append(sample.result)
@@ -650,7 +763,17 @@ def run_main_window():
                 results=results,
                 label_priority=analysis_input.label_priority,
                 paths=analysis_input.paths,
-                online_status=online_status   
+                online_status=online_status,
+                low_depth_threshold=low_depth_threshold
             )
 
+            # 2. Dès que results_window se ferme, le code reprend ICI et exécute ces 3 lignes :
+            try:
+                window.bring_to_front()      # Remonte la fenêtre principale au-dessus des autres
+                window.force_focus()         # Redonne le focus clavier/souris à la fenêtre principale
+                window.TKroot.focus_force()  # Force de manière absolue au niveau du système d'exploitation
+            except Exception as e:
+                logging.warning(f"Failed to focus main window: {e}")
+
     window.close()
+    sys.exit()

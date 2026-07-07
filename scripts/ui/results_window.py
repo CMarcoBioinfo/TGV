@@ -1,5 +1,6 @@
 import PySimpleGUI as sg
 import os
+import re
 import shutil
 import tempfile
 import logging
@@ -81,7 +82,7 @@ def build_genotype_panel():
     ], relief=sg.RELIEF_SUNKEN, pad=(5,5))
 
 
-def show_results_window(sample_name, results, label_priority, paths, online_status):
+def show_results_window(sample_name, results, label_priority, paths, online_status, low_depth_threshold):
     sorted_labels = sorted(label_priority.keys(), key=lambda k: label_priority[k])
     sorted_labels = ["None"] + sorted_labels
 
@@ -197,9 +198,9 @@ def show_results_window(sample_name, results, label_priority, paths, online_stat
         location=win_location
     )
 
-    # --- 3. Bloquer l'action du bouton "X" système (MAINTENANT QUE LA FENÊTRE EXISTE) ---
+    # --- 3. Bloquer l'action du bouton "X" enregiste bien les posstion ---
     try:
-        window.TKroot.protocol("WM_DELETE_WINDOW", lambda: None)
+        window.TKroot.protocol("WM_DELETE_WINDOW", lambda: window.write_event_value("Fermer", None))
     except Exception as e:
         logging.warning(f"Could not disable system window close button: {e}")
 
@@ -242,7 +243,6 @@ def show_results_window(sample_name, results, label_priority, paths, online_stat
                 curr_size = window.size
                 
                 # Extraction ultra-précise des coordonnées Tkinter pour éviter la dérive
-                import re
                 geom = window.TKroot.geometry() # Retourne une chaîne du type "1200x800+100+150"
                 logging.debug(f"Raw Tkinter window geometry detected at closing: {geom}")
                 
