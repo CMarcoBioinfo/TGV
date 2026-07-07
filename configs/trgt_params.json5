@@ -1,0 +1,70 @@
+{
+    // ==========================================
+    // TRGT genotype parameters
+    // ==========================================
+    "genotype": {
+
+        // Sample karyotype
+        // Default TRGT: "XX"
+        "karyotype": "XX",
+
+        // Preset: "wgs" or "targeted"
+        // Default TRGT: "wgs"
+        "preset": "wgs",
+
+        // Verbosity level
+        // Default TRGT: 0 (no -v)
+        // 1 = -v
+        // 2 = -vv
+        "verbose": 0,
+
+        // Color output: "auto", "always", "never"
+        // Default TRGT: "auto"
+        "color": "auto",
+
+        // Genotyping algorithm: "size" or "cluster"
+        // Default TRGT: "size"
+        "genotyper": "size",
+
+        // Minimum flanking sequence length
+        // Default TRGT: 250
+        "flank-len": 250,
+
+        // Maximum locus depth
+        // Default TRGT: 250
+        "max-depth": 250,
+
+        // Output flanking sequence length
+        // Default TRGT: 50
+        "output-flank-len": 50
+    },
+
+    // ==========================================
+    // TRGT plot parameters
+    // ==========================================
+    "plot": {
+
+        // Mode de génération des graphiques
+        // Options: "all", "meth", "allele", "waterfall", "motifs"
+        "plot_mode": "all",
+
+        // Niveau de verbosité
+        // 0 = standard, 1 = -v, 2 = -vv
+        "verbose": 0,
+
+        // Compresse horizontalement le graphique (true/false)
+        "squished": false,
+
+        // Police d'écriture pour les textes
+        "font-family": "Roboto Mono",
+
+        // Option d'affichage des couleurs dans les logs: "always", "auto", "never"
+        "color": "auto",
+
+        // Taille des régions flanquantes (entier >= 0)
+        "flank-len": 50,
+
+        // Nombre max de lectures par allèle à tracer (entier >= 0)
+        "max-allele-reads": 100
+    }
+}
