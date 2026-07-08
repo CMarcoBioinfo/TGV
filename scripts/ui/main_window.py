@@ -767,13 +767,5 @@ def run_main_window():
                 low_depth_threshold=low_depth_threshold
             )
 
-            # 2. Dès que results_window se ferme, le code reprend ICI et exécute ces 3 lignes :
-            try:
-                window.bring_to_front()      # Remonte la fenêtre principale au-dessus des autres
-                window.force_focus()         # Redonne le focus clavier/souris à la fenêtre principale
-                window.TKroot.focus_force()  # Force de manière absolue au niveau du système d'exploitation
-            except Exception as e:
-                logging.warning(f"Failed to focus main window: {e}")
-
     window.close()
     sys.exit()
