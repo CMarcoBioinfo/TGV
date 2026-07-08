@@ -214,8 +214,7 @@ def run_main_window():
     window = sg.Window("TGV - TRGT Global Viewer", layout, finalize=True)
 
     try:
-        import sys
-        window.TKroot.protocol("WM_DELETE_WINDOW", lambda: sys.exit())
+        window.TKroot.protocol("WM_DELETE_WINDOW", lambda: os._exit(0))
     except Exception as e:
         logging.warning(f"Failed to bind main window protocol: {e}")
 
