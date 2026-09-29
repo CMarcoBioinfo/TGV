@@ -18,6 +18,8 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
+from scripts.ui.igv import start_local_server, cleanup_tmpdir_force, CURRENT_TMPDIR
+
 try:
     import PySimpleGUI as sg
 except ImportError:
@@ -1217,6 +1219,7 @@ document.addEventListener('DOMContentLoaded', function() {{
 
 
 def open_report_on_the_fly(input_path: Path):
+    global CURRENT_TMPDIR
     try:
         input_path = Path(input_path)
         html_content = generate_report_html_string(input_path)
@@ -1224,21 +1227,31 @@ def open_report_on_the_fly(input_path: Path):
         run_name = reader.get_run_name()
         reader.close()
 
-        tmp_path = os.path.join(tempfile.gettempdir(), f"tgv_report_{run_name}.html")
-        logging.debug(f"Writing temporary standalone HTML report to: {tmp_path}")
+        # 1. Nettoyage de toute instance précédente (serveur + dossier)
+        cleanup_tmpdir_force()
+
+        # 2. Création d'un dossier temporaire dédié
+        CURRENT_TMPDIR = tempfile.mkdtemp(prefix="tgv_report_")
+        
+        # 3. Écriture du fichier dans ce dossier
+        tmp_path = os.path.join(CURRENT_TMPDIR, "index.html")
         with open(tmp_path, "w", encoding="utf-8") as f:
             f.write(html_content)
 
-        uri = Path(tmp_path).as_uri()
-        logging.info(f"Launching web browser at report URI: {uri}")
-        webbrowser.open(uri)
+        # 4. Lancement du serveur sur ce dossier
+        port = start_local_server(CURRENT_TMPDIR)
+        
+        # 5. Ouverture via HTTP (contourne les blocages Linux)
+        url = f"http://127.0.0.1:{port}/index.html"
+        logging.info(f"Launching web browser at report URL: {url}")
+        webbrowser.open(url)
+        
     except Exception as e:
-        logging.error(f"Failed to generate and open QC enrichment report on-the-fly: {e}", exc_info=True)
+        logging.error(f"Failed to generate and open QC enrichment report: {e}", exc_info=True)
         if sg:
             sg.popup_error(f"Impossible d'ouvrir le rapport global :\n{e}")
         else:
             print(f"\n[ERREUR] Impossible d'ouvrir le rapport global :\n{e}\n", file=sys.stderr)
-
 
 def main():
     parser = argparse.ArgumentParser(description="Rapport HTML PacBio TRGT & TGV QC")

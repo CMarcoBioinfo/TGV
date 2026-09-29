@@ -4,6 +4,8 @@ import webbrowser
 import logging
 from pathlib import Path
 
+from scripts.ui.igv import start_local_server, cleanup_tmpdir_force, CURRENT_TMPDIR
+
 try:
     from scripts.core.i18n import tr
 except ImportError:
@@ -515,14 +517,29 @@ def generate_html_table(headers, rows, sample_name, run_id=None):
 
 
 def save_and_open_html(html_content):
+    global CURRENT_TMPDIR, CURRENT_SERVER
+    
     try:
-        tmp_path = os.path.join(tempfile.gettempdir(), "trgt_table.html")
+        # 1. Nettoyage de l'ancienne session (port et dossier)
+        cleanup_tmpdir_force() # Utilise votre fonction existante qui appelle stop_local_server()
+        
+        # 2. Création d'un dossier temporaire dédié pour ce rapport
+        CURRENT_TMPDIR = tempfile.mkdtemp(prefix="tgv_report_")
+        
+        # 3. Écriture du fichier dans ce dossier
+        tmp_path = os.path.join(CURRENT_TMPDIR, "index.html")
         with open(tmp_path, "w", encoding="utf-8") as f:
             f.write(html_content)
-        uri = Path(tmp_path).as_uri()
-        webbrowser.open(uri)
+            
+        # 4. Lancement du serveur sur ce dossier
+        port = start_local_server(CURRENT_TMPDIR)
+        
+        # 5. Ouverture via le serveur (port local)
+        url = f"http://127.0.0.1:{port}/index.html"
+        logging.info(f"Ouverture du rapport via serveur local : {url}")
+        webbrowser.open(url)
+        
     except Exception as e:
+        logging.error(f"Erreur lors de l'export HTML : {e}")
         if sg:
             sg.popup_error(f"{tr('Erreur')} :\n{e}")
-        else:
-            logging.error(f"Error opening HTML: {e}")
